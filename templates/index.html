@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+ <title>新品报货自动处理</title>
+ <style>
+        body {
+            font-family: Arial, sans-serif;
+        }
+        form {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        .input-group {
+            display: flex;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+        input[type="file"] {
+            margin-right: 10px;
+        }
+        input[type="submit"] {
+            background-color: #4CAF50;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            cursor: pointer;
+            font-size: 16px;
+        }
+        input[type="submit"]:hover {
+            background-color: #45a049;
+        }
+    </style>
+   <script>
+        function validateForm(event) {
+            const file1 = document.getElementById("file1");
+            const file2 = document.getElementById("file2");
+            const file3 = document.getElementById("file3");
+
+            const file1Size = file1.files[0].size;
+            const file2Size = file2.files[0].size;
+            const file3Size = file3.files[0] ? file3.files[0].size : 0;
+
+            if (file1Size > 10 * 1024 * 1024 || file2Size > 10 * 1024 * 1024 || file3Size > 10 * 1024 * 1024) {
+                alert("文件大小不能超过10MB");
+                event.preventDefault();
+                return;
+            }
+
+            const file1Extension = file1.files[0].name.split(".").pop();
+            const file2Extension = file2.files[0].name.split(".").pop();
+            const file3Extension = file3.files[0] ? file3.files[0].name.split(".").pop() : "";
+
+            if (file1Extension !== "xlsx" || file2Extension !== "xls" || (file3.files[0] && file3Extension !== "xlsx")) {
+                alert("文件格式不正确");
+                event.preventDefault();
+                return;
+            }
+        }
+    </script>
+</head>
+<body>
+    <h1>新品报货自动处理</h1>
+    <form action="/upload" method="POST" enctype="multipart/form-data" onsubmit="validateForm(event)">
+        <div class="input-group">
+          <input type="file" name="file1" id="file1">
+          <label for="file1">（必选）门店管理文件</label>
+        </div>
+        <div class="input-group">
+          <input type="file" name="file2" id="file2">
+          <label for="file2">（必选）U8C导出文件</label>
+        </div>
+        <div class="input-group">
+          <input type="file" name="file3" id="file3">
+          <label for="file3">（可选）新品销售文件</label>
+        </div>
+      <input type="submit" value="上传文件">
+    </form>
+</body>
+</html>
