@@ -71,33 +71,28 @@ def page_not_found(e):
 
 @app.route('/')
 def index():
+    # 输出文件夹的路径
     output_folder = 'Outputs'
-    file_list = os.listdir(output_folder)
-    file_list = [file for file in file_list if file is not None]
 
-    error_message = None
+    # 创建一个空列表，用于存储文件名和创建日期
+    file_list = []
 
-    for file in file_list:
-        try:
-            dt_str = os.path.splitext(file)[0].split('_')[-1]
-            datetime.strptime(dt_str, '%Y%m%d_%H%M')
-        except ValueError as e:
-            error_message = f"Error parsing date for file {file}: {e}"
-            break
+    # 遍历输出文件夹中的所有文件
+    for file in os.listdir(output_folder):
+        # 获取文件的完整路径
+        file_path = os.path.join(output_folder, file)
 
-    if error_message is None:
-        try:
-            file_list = sorted(file_list, key=lambda x: datetime.strptime(os.path.splitext(x)[0].split('_')[-1], '%Y%m%d_%H%M'), reverse=True)
-        except ValueError as e:
-            error_message = f"Error sorting files: {e}"
-    else:
-        file_list = sorted(file_list)  # Sort the file list in ascending order by name
+        # 获取文件的创建日期
+        creation_date = datetime.fromtimestamp(os.path.getctime(file_path))
 
-    return render_template('index.html', file_list=file_list, error_message=error_message)
+        # 将文件名和创建日期添加到列表中
+        file_list.append((file, creation_date))
 
+    # 按照创建日期和文件名对文件列表进行降序排序
+    file_list.sort(key=lambda x: (x[1], x[0]), reverse=True)
 
-
-
+    # 使用排序后的文件列表渲染模板
+    return render_template('index.html', file_list=file_list)
 
 @app.route('/xinpin')
 def xinpin():
@@ -258,6 +253,7 @@ def caipin_upload_files():
         caipin_df = pd.read_excel(file1_path)
     duizhao_df = pd.read_excel(file2_path,header=2)
     duizhao_df = duizhao_df.loc[:,['新增套餐名单品名','标准单品名称','是否为套餐','数量']]
+    duizhao_df = duizhao_df[duizhao_df['流程状态_系统字段'] == '已结束']
     result_df = pd.merge(caipin_df, duizhao_df, how='left', left_on='菜品名称',right_on='新增套餐名单品名')
     try:
         result_df['合计数量'] = result_df['销售数量'] *result_df['数量']
