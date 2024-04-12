@@ -5,7 +5,7 @@ Created on Wed Apr 10 14:06:51 2024
 @author: Administrator
 """
 from my_module import mendian_format, meituan_format
-from flask import Flask, request, url_for, render_template,render_template_string
+from flask import Flask, request, url_for, render_template,render_template_string,send_from_directory
 import os
 import pandas as pd
 import time
@@ -14,6 +14,7 @@ from datetime import datetime
 
 #输出文件夹
 folder = 'outputs'
+
 
 # 判断销售报货
 def sales_status(row):
@@ -70,7 +71,33 @@ def page_not_found(e):
 
 @app.route('/')
 def index():
-    return render_template('index.html')
+    output_folder = 'Outputs'
+    file_list = os.listdir(output_folder)
+    file_list = [file for file in file_list if file is not None]
+
+    error_message = None
+
+    for file in file_list:
+        try:
+            dt_str = os.path.splitext(file)[0].split('_')[-1]
+            datetime.strptime(dt_str, '%Y%m%d_%H%M')
+        except ValueError as e:
+            error_message = f"Error parsing date for file {file}: {e}"
+            break
+
+    if error_message is None:
+        try:
+            file_list = sorted(file_list, key=lambda x: datetime.strptime(os.path.splitext(x)[0].split('_')[-1], '%Y%m%d_%H%M'), reverse=True)
+        except ValueError as e:
+            error_message = f"Error sorting files: {e}"
+    else:
+        file_list = sorted(file_list)  # Sort the file list in ascending order by name
+
+    return render_template('index.html', file_list=file_list, error_message=error_message)
+
+
+
+
 
 @app.route('/xinpin')
 def xinpin():
@@ -109,6 +136,16 @@ def xinpin_upload_files():
     file_link = url_for('static', filename=gen_file_name)
     html = f'<a href="{file_link}">下载{gen_file_name}</a>'
     return render_template_string(html)
+
+
+@app.route('/download/<filename>')
+def download_file(filename):
+    return send_from_directory(folder, filename, as_attachment=True)
+
+@app.route('/download/<filename>')
+def download_output_file(filename):
+    return send_from_directory(directory='Outputs', filename=filename, as_attachment=True)
+
 
 # 处理文件
 def xinpin_process_files(file1_path, file2_path, file3_path=None):
@@ -216,11 +253,11 @@ def caipin_upload_files():
         caipin_df = pd.read_excel(file1_path,header=2)
         # 删除前两行
         caipin_df = caipin_df.drop(caipin_df.iloc[0:2].index)
-        caipin_df = caipin_df.loc[:,['机构编码','门店','订单编号','营业日期','菜品名称','销售数量']]
+        caipin_df.loc[:,['菜品名称']]
     except:
         caipin_df = pd.read_excel(file1_path)
     duizhao_df = pd.read_excel(file2_path,header=2)
-    duizhao_df = duizhao_df.loc[:,['新增套餐名单品名','标准单品名称','数量']]
+    duizhao_df = duizhao_df.loc[:,['新增套餐名单品名','标准单品名称','是否为套餐','数量']]
     result_df = pd.merge(caipin_df, duizhao_df, how='left', left_on='菜品名称',right_on='新增套餐名单品名')
     try:
         result_df['合计数量'] = result_df['销售数量'] *result_df['数量']
@@ -233,4 +270,4 @@ def caipin_upload_files():
 
 
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=5000,debug=0)
+    app.run(host='0.0.0.0', port=5000,debug=1)

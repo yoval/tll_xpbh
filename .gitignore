@@ -1,0 +1,7 @@
+# 忽略uploads文件夹中的内容
+uploads/*
+!uploads/.gitkeep
+
+# 忽略outputs文件夹中的内容
+outputs/*
+!outputs/.gitkeep

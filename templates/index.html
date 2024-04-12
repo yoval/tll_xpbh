@@ -3,12 +3,17 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-   <title>报货报表自动处理程序</title>
-   <style>
+    <title>报货报表自动处理程序ver0.1</title>
+    <style>
+        * {
+            box-sizing: border-box;
+        }
+
         body {
             font-family: Arial, sans-serif;
             text-align: center;
             background-color: #f0f0f0;
+            padding: 20px;
         }
 
         a {
@@ -20,10 +25,64 @@
             margin: 10px;
             border-radius: 5px;
             font-size: 18px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
         }
 
         a:hover {
             background-color: #45a049;
+        }
+
+        .files {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            margin-top: 20px;
+        }
+
+        ul {
+            list-style-type: none;
+            padding: 0;
+            margin: 0;
+        }
+
+        li {
+            margin: 5px 0;
+        }
+
+        .files a {
+            display: inline;
+            background-color: inherit;
+            padding: inherit;
+            margin: inherit;
+            border-radius: inherit;
+            font-size: inherit;
+            color: inherit;
+            text-decoration: inherit;
+        }
+
+        .files h2 {
+            font-size: 24px;
+            font-weight: bold;
+            margin-bottom: 10px;
+        }
+
+        .files ul {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-start;
+            text-align: left;
+            background-color: #ffffff;
+            border: 1px solid #cccccc;
+            border-radius: 5px;
+            padding: 15px;
+            width: 80%;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+
+        .files li {
+            margin: 5px 0;
+            word-break: break-word;
+            white-space: pre-wrap;
         }
     </style>
 </head>
@@ -32,5 +91,14 @@
     <a href="xinpin">新品报货（销售）</a>
     <a href="danpin">单品报货（90天）</a>
     <a href="caipin">套餐菜品名称还原</a>
+    <div class="files">
+        <h2>已生成的文件列表：</h2>
+        <ul id="file-list">
+            {% for file in file_list %}
+                <li><a href="{{ url_for('download_output_file', filename=file) }}">{{ file }}</a></li>
+            {% endfor %}
+        </ul>
+    </div>
+
 </body>
 </html>

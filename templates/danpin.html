@@ -3,8 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
- <title>单报货自动处理（90天）</title>
- <style>
+    <title>单品报货自动处理（90天）</title>
+    <style>
         body {
             font-family: Arial, sans-serif;
         }
@@ -33,29 +33,35 @@
             background-color: #45a049;
         }
     </style>
-   <script>
-		function validateForm(event) {
-			const file1 = document.getElementById("file1");
-			const file2 = document.getElementById("file2");
+    <script>
+        function validateForm(event) {
+            const file1 = document.getElementById("file1");
+            const file2 = document.getElementById("file2");
 
-			const file1Size = file1.files[0].size;
-			const file2Size = file2.files[0].size;
+            if (file1.files.length === 0 || file2.files.length === 0) {
+                alert("请选择文件");
+                event.preventDefault();
+                return;
+            }
 
-			if (file1Size > 10 * 1024 * 1024 || file2Size > 10 * 1024 * 1024) {
-				alert("文件大小不能超过10MB");
-				event.preventDefault();
-				return;
-			}
+            const file1Size = file1.files[0].size;
+            const file2Size = file2.files[0].size;
 
-			const file1Extension = file1.files[0].name.split(".").pop();
-			const file2Extension = file2.files[0].name.split(".").pop();
+            if (file1Size > 10 * 1024 * 1024 || file2Size > 10 * 1024 * 1024) {
+                alert("文件大小不能超过10MB");
+                event.preventDefault();
+                return;
+            }
 
-			if (file1Extension !== "xlsx" || file2Extension !== "xls") {
-				alert("文件格式不正确");
-				event.preventDefault();
-				return;
-			}
-		}
+            const file1Extension = file1.files[0].name.split(".").pop();
+            const file2Extension = file2.files[0].name.split(".").pop();
+
+            if (file1Extension !== "xlsx" || file2Extension !== "xls") {
+                alert("文件格式不正确");
+                event.preventDefault();
+                return;
+            }
+        }
     </script>
 </head>
 <body>

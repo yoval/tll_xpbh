@@ -3,8 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
- <title>新品报货自动处理</title>
- <style>
+    <title>新品报货自动处理</title>
+    <style>
         body {
             font-family: Arial, sans-serif;
         }
@@ -33,11 +33,17 @@
             background-color: #45a049;
         }
     </style>
-   <script>
+    <script>
         function validateForm(event) {
             const file1 = document.getElementById("file1");
             const file2 = document.getElementById("file2");
             const file3 = document.getElementById("file3");
+
+            if (file1.files.length === 0 || file2.files.length === 0) {
+                alert("请选择文件");
+                event.preventDefault();
+                return;
+            }
 
             const file1Size = file1.files[0].size;
             const file2Size = file2.files[0].size;
