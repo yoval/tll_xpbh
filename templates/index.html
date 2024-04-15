@@ -113,6 +113,12 @@
             margin-top: 20px;
             border-top: 1px solid #cccccc;
         }
+    a.gray {
+            background-color: #cccccc;
+        }
+    a.gray:hover {
+            background-color: #bbbbbb;
+        }
     </style>
  <script>
         function sortTable(columnIndex, ascending) {
@@ -143,14 +149,16 @@
     <h1>报货报表自动处理程序ver0.1</h1>
     <a href="xinpin">新品报货（销售）</a>
     <a href="danpin">单品报货（90天）</a>
+    <a href="xiaoshou">单店单品销售制作</a>
     <a href="caipin">套餐菜品名称还原</a>
+    <a href="readme" class="gray" target="_blank">说明 </a>
     <div class="files">
         <h2>已生成的文件列表：</h2>
     <table id="file-table">
         <thead>
                 <tr>
                     <th><a href="#" onclick="sortTable(0, false)">文件名</a></th>
-                    <th><a href="#" onclick="sortTable(1, false)">创建日期</a></th>
+                    <th><a href="#" onclick="sortTable(1, false)">创建时间</a></th>
                 </tr>
             </thead>
         <tbody id="file-list">
