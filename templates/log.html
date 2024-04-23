@@ -4,8 +4,11 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>说明文档</title>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/github-markdown-css/5.1.0/github-markdown.min.css">
-  <style>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/4.6.0/css/bootstrap.min.css">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism.min.css" rel="stylesheet" />
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/prism.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-sql.min.js"></script>
+ <style>
         body {
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
             line-height: 1.6;
@@ -77,6 +80,7 @@
         pre, code {
             font-family: SFMono-Regular, Consolas, "Liberation Mono", Menlo, Courier, monospace;
             font-size: 12px;
+            white-space: pre-wrap; /* 添加这一行 */
         }
 
         pre {
@@ -121,7 +125,7 @@
 </head>
 <body>
     <div class="markdown-body">
-        {{ content|safe }}
+        <pre class="language-sql">{{ content|safe }}</pre>
     </div>
 </body>
 </html>

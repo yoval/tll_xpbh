@@ -10,12 +10,27 @@ import os
 import pandas as pd
 import time
 import openpyxl
-from datetime import datetime
+from datetime import datetime, timedelta
 import markdown
+from dateutil.relativedelta import relativedelta
 
 #输出文件夹
 folder = 'outputs'
 
+def calculate_periods(current_start_date: datetime, current_end_date: datetime):
+    days_in_period = (current_end_date - current_start_date).days
+    # 计算环比期
+    previous_period_end_date = current_start_date - timedelta(days= 1)
+    previous_period_start_date = previous_period_end_date - timedelta(days=days_in_period)
+    # 计算同比期
+    last_year_start_date = current_start_date - relativedelta(years=1)
+    last_year_end_date = current_end_date - relativedelta(years=1)
+
+    return {
+        '本期': (current_start_date, current_end_date),
+        '环比期': (previous_period_start_date, previous_period_end_date),
+        '同比期': (last_year_start_date, last_year_end_date)
+    }
 
 # 判断销售报货
 def sales_status(row):
@@ -302,12 +317,25 @@ def xiaoshou_upload_files():
     return html
     
 
+@app.route('/qishu', methods=['GET', 'POST'])
+def qishu():
+    result = []
+    if request.method == 'POST':
+        start_date_str = request.form['start_date']
+        end_date_str = request.form['end_date']
+        current_start_date = datetime.strptime(start_date_str, '%Y-%m-%d')
+        current_end_date = datetime.strptime(end_date_str, '%Y-%m-%d')
+
+        periods = calculate_periods(current_start_date, current_end_date)
+
+        result = []
+        for period_name, (start_date, end_date) in periods.items():
+            result.append((period_name, start_date, end_date))
 
 
-
-
-
-
+#            result += f"{period_name}：{start_date.strftime('%Y.%m.%d')} ~ {end_date.strftime('%Y.%m.%d')}"
+    
+    return render_template('qishu.html', result=result)
 
 
 
