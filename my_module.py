@@ -21,7 +21,7 @@ def mendian_format(file):
     return df
 
 # 美团格式化
-def meituan_format(file):
+def meituan_caipin_format(file):
     df =  pd.read_excel(file,header=[2,3],skipfooter=1)
     df.columns = df.columns.map(''.join).str.replace(' ', '')
     old_header = df.columns
@@ -32,6 +32,39 @@ def meituan_format(file):
     df = df.groupby('机构编码')['销售数量'].sum()
     return df,caipin_name
 
+# 综合营业统计
+def meituan_zonghe_format(file):
+    df =  pd.read_excel(file,header=[2,3,4],skipfooter=1)
+    df.columns = df.columns.map(''.join).str.replace(' ', '')
+    old_header = df.columns
+    new_header = [s.split('Unnamed:')[0] if 'Unnamed:' in s else s for s in old_header]
+    df.columns = new_header
+    df = df.loc[:,['机构编码','商户号','门店','营业天数','营业额（元）','营业收入（元）','订单量','渠道营业构成收银POS营业额（元）','渠道营业构成收银POS营业收入（元）',
+         '渠道营业构成美团外卖营业额（元）','渠道营业构成美团外卖营业收入（元）','渠道营业构成饿了么外卖营业额（元）','渠道营业构成饿了么外卖营业收入（元）','渠道营业构成自营外卖营业额（元）','渠道营业构成自营外卖营业收入（元）'
+          ,'渠道营业构成第三方小程序营业额（元）','渠道营业构成第三方小程序营业收入（元）'
+         ]]
+    df_new = df.rename(columns={
+        '机构编码':'门店编码',
+        '商户号': '门店ID',
+        '订单量':'账单数',
+        '营业额（元）':'流水金额',
+        '营业收入（元）':'实收金额',
+        '渠道营业构成收银POS营业额（元）':'堂食流水',
+        '渠道营业构成收银POS营业收入（元）':'堂食实收',
+        '渠道营业构成美团外卖营业额（元）':'美团流水',
+        '渠道营业构成美团外卖营业收入（元）':'美团实收',
+        '渠道营业构成饿了么外卖营业额（元）':'饿了么流水',
+        '渠道营业构成饿了么外卖营业收入（元）':'饿了么实收',
+        '渠道营业构成自营外卖营业额（元）':'自营流水',
+        '渠道营业构成自营外卖营业收入（元）':'自营实收',
+        '渠道营业构成第三方小程序营业额（元）':'小程序流水',
+        '渠道营业构成第三方小程序营业收入（元）':'小程序实收'
+        })
+    df_new['门店编码'] = df_new['门店编码'].str.split('-').str[0]
+    df_new['外卖流水'] = df_new['美团流水']+df_new['饿了么流水']+df_new['自营流水']
+    df_new['外卖实收'] = df_new['美团实收']+df_new['饿了么实收']+df_new['自营实收']
+#    df_new.loc[:, ['门店ID','营业天数','账单数','流水金额','实收金额','堂食流水','堂食实收','小程序流水','小程序实收','外卖流水','外卖实收','美团流水','饿了么流水','自营流水','门店编码']]
+    return df_new
 # 移动文件
 def move_file(source_file, target_folder):
     file_name = os.path.basename(source_file)
@@ -55,3 +88,4 @@ def check_u8c_export(df):
     df = df[:-2]
     print('当报货表中，共有%s件商品'%len(df['存货名称'].unique()))
     return df
+
