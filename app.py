@@ -91,6 +91,32 @@ def add_number(text):
     numbered_text = '\n'.join(numbered_lines)
     return numbered_text
 
+# 监控在线状况判断
+def cal_zaixian(zaixian):
+    a,b = zaixian.split('/')
+    if a =='0':
+        return '离线'
+    elif b=='1':
+        return '部分在线'
+    elif a==b :
+        return '在线'
+    else :
+        return '部分在线'
+# 监控表透视
+def jiankong_process_stores(df):
+    pivot_stores = pd.pivot_table(
+        df,
+        index=["大区经理", "省区经理", "区域经理"],
+        columns=["在线状况"],
+        values="门店编号",
+        aggfunc="count",
+        fill_value=0,
+    )
+    pivot_stores.reset_index(inplace=True)
+    pivot_stores["监控门店数"] = pivot_stores["在线"] + pivot_stores["部分在线"] + pivot_stores["离线"]
+    return pivot_stores
+
+
 
 # 创建 Flask 应用
 app = Flask(__name__, template_folder='./templates',static_folder='outputs')
@@ -115,6 +141,10 @@ def index():
 @app.route('/xinpin')
 def xinpin():
     return render_template('xinpin.html')
+
+@app.route('/jiankong')
+def jiankong():
+    return render_template('jiankong.html')
 
 @app.route('/readme')
 def readme():
@@ -389,7 +419,40 @@ def xiaoshou_upload_files():
     file_link = url_for('static', filename=f'{caipin_name}_单店单品销售统计_{now}.xlsx')
     html = f'<a href="{file_link}">下载{caipin_name}_单店单品销售统计_{now}.xlsx</a>'
     return html
+
+
+@app.route('/jiankong_upload', methods=['POST'])
+def jiankong_upload_files():
+    now = time.strftime('%Y%m%d_%H%M', time.localtime())
+    file1 = request.files['file1']
+    file2 = request.files['file2']
+    file1_path = os.path.join('uploads', f'{now}_{file1.filename}')
+    file1.save(file1_path)
+    file2_path = os.path.join('uploads', f'{now}_{file2.filename}')
+    file2.save(file2_path)
+    mendian_df = mendian_format(file1_path)
+    jiankong_df = pd.read_excel(file2_path,header=2)
+    new_store_codes = {'城中万达广场': 'TLL07669'}
+    for store_name, new_code in new_store_codes.items():
+        jiankong_df.loc[jiankong_df['门店名称'] == store_name, '门店编号'] = new_code
+    df_merge= pd.merge(jiankong_df, mendian_df, how='left', left_on ='门店编号',right_on='门店编码',suffixes=('', '_OA'))
+    df_merge['在线状况'] = df_merge['设备在线情况'].apply(cal_zaixian)
+    df_merge = df_merge.loc[:,['门店编号','门店名称','省','市','区','运营状态','南北战区','大区经理','省区经理','区域经理','设备在线情况','设备在线率','设备存储情况','在线状况']]
+    df_open_stores = df_merge.query('运营状态 != "空合同" and 运营状态 != "长期闭店"') # 排除空合同、长期闭店门店
+    pivot_open_stores = jiankong_process_stores(df_open_stores)
+    df_operating_stores = df_merge[df_merge["运营状态"] == "营业中"] # 营业中门店
+    pivot_operating_stores = jiankong_process_stores(df_operating_stores)
+    df_result= pd.merge(pivot_open_stores, pivot_operating_stores, how='left', on ='区域经理',suffixes=('', '(营业中)'))
+    df_result = df_result.loc[:,['大区经理','省区经理','区域经理','监控门店数','在线','部分在线','离线','监控门店数(营业中)','在线(营业中)','部分在线(营业中)','离线(营业中)']]
+    output_filename = f'{folder}\\门店监控状态统计_{now}.xlsx'
+    with pd.ExcelWriter(output_filename, engine='openpyxl') as writer:
+        df_merge.to_excel(writer, sheet_name='底表', index=False)
+        df_result.to_excel(writer, sheet_name='中间表', index=False)
     
+    file_link = url_for('static', filename=f'门店监控状态统计_{now}.xlsx')
+    html = f'<a href="{file_link}">下载门店监控状态统计_{now}.xlsx</a>'
+    return html
+
 
 @app.route('/qishu', methods=['GET', 'POST'])
 def qishu():
@@ -419,6 +482,7 @@ def get_local_ip():
     finally:
         s.close()
     return ip
+
 
 post_url = 'https://note.bizha.top/tianlala' 
 local_ip = get_local_ip()
