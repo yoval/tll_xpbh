@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+ <title>数据部自动化脚本</title>
+ <style>
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: Arial, sans-serif;
+            text-align: center;
+            background-color: #f0f0f0;
+            padding: 20px;
+        }
+
+        a {
+            display: inline-block;
+            text-decoration: none;
+            color: #ffffff;
+            background-color: #4CAF50;
+            padding: 10px 20px;
+            margin: 10px;
+            border-radius: 5px;
+            font-size: 18px;
+            box-shadow: none;
+        }
+
+        a:hover {
+            background-color: #45a049;
+        }
+
+        .files {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            margin-top: 20px;
+        }
+
+        ul {
+            list-style-type: none;
+            padding: 0;
+            margin: 0;
+        }
+
+        li {
+            margin: 5px 0;
+        }
+
+        .files a {
+            display: inline;
+            background-color: inherit;
+            padding: inherit;
+            margin: inherit;
+            border-radius: inherit;
+            font-size: inherit;
+            color: inherit;
+            text-decoration: inherit;
+        }
+
+        .files h2 {
+            font-size: 24px;
+            font-weight: bold;
+            margin-bottom: 10px;
+        }
+
+        .files ul {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-start;
+            text-align: left;
+            background-color: #ffffff;
+            border: 1px solid #cccccc;
+            border-radius: 5px;
+            padding: 15px;
+            width: 80%;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+
+        .files li {
+            margin: 5px 0;
+            word-break: break-word;
+            white-space: pre-wrap;
+        }
+
+        table {
+            width: 80%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+
+        th, td {
+            padding: 10px;
+            text-align: left;
+            border-bottom: 1px solid #cccccc;
+        }
+
+        th {
+            background-color: #f0f0f0;
+            font-weight: bold;
+        }
+
+        tr:hover {
+            background-color: #f5f5f5;
+        }
+
+        .footer {
+            background-color: #f0f0f0;
+            padding: 10px;
+            text-align: center;
+            margin-top: 20px;
+            border-top: 1px solid #cccccc;
+        }
+    a.gray {
+            background-color: #cccccc;
+        }
+    a.gray:hover {
+            background-color: #bbbbbb;
+        }
+    </style>
+ <script>
+        function sortTable(columnIndex, ascending) {
+            const table = document.getElementById("file-table");
+            const rows = Array.from(table.rows).slice(1); // 获取所有行，除了表头
+            const sortedRows = rows.sort((a, b) => {
+                const aValue = a.cells[columnIndex].innerText;
+                const bValue = b.cells[columnIndex].innerText;
+                if (columnIndex === 1) { // 如果是创建日期列，将字符串转换为日期对象
+                    return ascending ? new Date(aValue) - new Date(bValue) : new Date(bValue) - new Date(aValue);
+                } else {
+                    return ascending ? aValue.localeCompare(bValue) : bValue.localeCompare(aValue);
+                }
+            });
+
+            // 重新插入排序后的行
+            for (const row of sortedRows) {
+                table.tBodies[0].appendChild(row);
+            }
+
+            // 切换排序顺序
+            ascending = !ascending;
+            return ascending;
+        }
+    </script>
+</head>
+<body>
+    <h1>数据部自动化脚本</h1>
+    <a href="xinpin">新品报货（销售）</a>
+    <a href="danpin">单品报货（90天）</a>
+    <a href="xiaoshou">单店单品销售制作</a>
+    <a href="caipin">套餐菜品名称还原</a>
+    <a href="xundian">巡店表处理</a>
+	<a href="jiankong">监控报表生成</a>
+    <a href="qishu">同环比期计算</a>
+    <a href="http://tll.bizha.top/#/?id=%e8%87%aa%e5%8a%a8%e5%8c%96%e8%84%9a%e6%9c%ac" class="gray" target="_blank">说明 </a>
+    <div class="files">
+        <h2>已生成的文件列表：</h2>
+    <table id="file-table">
+        <thead>
+                <tr>
+                    <th><a href="#" onclick="sortTable(0, false)">文件名</a></th>
+                    <th><a href="#" onclick="sortTable(1, false)">创建时间</a></th>
+                </tr>
+            </thead>
+        <tbody id="file-list">
+                {% for file, creation_date in file_list %}
+                <tr>
+                    <td><a href="/download/{{ file }}">{{ file }}</a></td>
+                    <td>{{ creation_date.strftime('%Y-%m-%d %H:%M:%S') }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <div class="footer">
+        <p>&copy; 2024 Fuwenyue. All rights reserved.</p>
+    </div>
+
+</body>
+</html>

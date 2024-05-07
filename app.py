@@ -99,7 +99,7 @@ def cal_zaixian(zaixian):
     elif b=='1':
         return '部分在线'
     elif a==b :
-        return '在线'
+        return '完全在线'
     else :
         return '部分在线'
 # 监控表透视
@@ -113,7 +113,7 @@ def jiankong_process_stores(df):
         fill_value=0,
     )
     pivot_stores.reset_index(inplace=True)
-    pivot_stores["监控门店数"] = pivot_stores["在线"] + pivot_stores["部分在线"] + pivot_stores["离线"]
+    pivot_stores["监控门店数"] = pivot_stores["完全在线"] + pivot_stores["部分在线"] + pivot_stores["离线"]
     return pivot_stores
 
 
@@ -134,8 +134,8 @@ def index():
         creation_date = datetime.fromtimestamp(os.path.getctime(file_path))
         file_list.append((file, creation_date))
     sorted_file_list = sorted(file_list, key=lambda x: x[1], reverse=True)
-    if len(sorted_file_list) > 12:
-       sorted_file_list = sorted_file_list[:12]
+    if len(sorted_file_list) > 13:
+       sorted_file_list = sorted_file_list[:13]
     return render_template('index.html', file_list=sorted_file_list)
 
 @app.route('/xinpin')
@@ -443,7 +443,9 @@ def jiankong_upload_files():
     df_operating_stores = df_merge[df_merge["运营状态"] == "营业中"] # 营业中门店
     pivot_operating_stores = jiankong_process_stores(df_operating_stores)
     df_result= pd.merge(pivot_open_stores, pivot_operating_stores, how='left', on ='区域经理',suffixes=('', '(营业中)'))
-    df_result = df_result.loc[:,['大区经理','省区经理','区域经理','监控门店数','在线','部分在线','离线','监控门店数(营业中)','在线(营业中)','部分在线(营业中)','离线(营业中)']]
+    df_result['在线'] =  df_result['完全在线'] + df_result['部分在线'] 
+    df_result['在线(营业中)'] =  df_result['完全在线(营业中)'] + df_result['部分在线(营业中)'] 
+    df_result = df_result.loc[:,['大区经理','省区经理','区域经理','监控门店数','在线','完全在线','部分在线','离线','监控门店数(营业中)','在线(营业中)','完全在线(营业中)','部分在线(营业中)','离线(营业中)']]
     output_filename = f'{folder}\\门店监控状态统计_{now}.xlsx'
     with pd.ExcelWriter(output_filename, engine='openpyxl') as writer:
         df_merge.to_excel(writer, sheet_name='底表', index=False)

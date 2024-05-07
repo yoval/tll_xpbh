@@ -3,12 +3,15 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
- <title>数据部自动化脚本</title>
- <style>
-        * {
-            box-sizing: border-box;
-        }
-
+    <title>数据部自动化脚本</title>
+    <!-- 引入 Bootstrap CSS 库 -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@4.6.0/dist/css/bootstrap.min.css" integrity="sha384-B0vP5xmATw1+K9KRQjQERJvTumQW0nPEzvF6L/Z6nronJ3oUOFUFpCjEUQouq2+l" crossorigin="anonymous">
+    <!-- 引入 Bootstrap JS 库 -->
+    <script src="https://code.jquery.com/jquery-3.5.1.slim.min.js" integrity="sha384-DfXdz2htPH0lsSSs5nCTpuj/zy4C+OGpamoFVy38MVBnE+IbbVYUew+OrCXaRkfj" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.9.3/dist/umd/popper.min.js" integrity="sha384-eMNCOe7tC1doHpGoJtKh7z7lGz7fuP4F8nfdFvAOA6Gg/z6Y5J6XqqyGXYM2ntX5" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@4.6.0/dist/js/bootstrap.min.js" integrity="sha384-+YQ4JLhjyBLPDQt//I+STsc9iw4uQqACwlvpslubQzn4u2UU2UFM80nGisd026JF" crossorigin="anonymous"></script>
+    <!-- 自定义 CSS 样式 -->
+    <style>
         body {
             font-family: Arial, sans-serif;
             text-align: center;
@@ -20,7 +23,7 @@
             display: inline-block;
             text-decoration: none;
             color: #ffffff;
-            background-color: #4CAF50;
+            background-color: transparent; /* 透明背景色 */
             padding: 10px 20px;
             margin: 10px;
             border-radius: 5px;
@@ -29,7 +32,26 @@
         }
 
         a:hover {
-            background-color: #45a049;
+            background-color: transparent; /* 透明背景色 */
+        }
+
+        .navbar {
+            background-color: transparent; /* 透明背景色 */
+            border: none; /* 移除边框 */
+        }
+
+        .navbar-brand {
+            font-size: 24px;
+            font-weight: bold;
+        }
+
+        .navbar-nav .nav-link {
+            color: #ffffff;
+            font-size: 18px;
+        }
+
+        .navbar-nav .nav-link:hover {
+            color: #45a049;
         }
 
         .files {
@@ -113,14 +135,68 @@
             margin-top: 20px;
             border-top: 1px solid #cccccc;
         }
-    a.gray {
-            background-color: #cccccc;
+
+        .dropdown-menu {
+            min-width: 100%; /* 宽度至少与其父元素的宽度相同 */
+            margin-left: -100px; /* 向左移动 100px */
         }
-    a.gray:hover {
-            background-color: #bbbbbb;
+
+        .navbar-custom {
+            background-color: #d1e7dd;
         }
     </style>
- <script>
+</head>
+<body>
+    <nav class="navbar navbar-expand-lg navbar-light bg-light navbar-custom">
+        <a class="navbar-brand" href="#">数据部自动化脚本</a>
+        <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbarNavDropdown" aria-controls="navbarNavDropdown" aria-expanded="false" aria-label="Toggle navigation">
+            <span class="navbar-toggler-icon"></span>
+        </button>
+        <div class="collapse navbar-collapse justify-content-end" id="navbarNavDropdown">
+            <ul class="navbar-nav">
+                <li class="nav-item dropdown">
+                    <a class="nav-link dropdown-toggle" href="#" id="navbarDropdownMenuLink" role="button" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+                        选项
+                    </a>
+                    <div class="dropdown-menu" aria-labelledby="navbarDropdownMenuLink">
+                        <a class="dropdown-item" href="xinpin">新品报货（销售）</a>
+                        <a class="dropdown-item" href="danpin">单品报货（90天）</a>
+                        <a class="dropdown-item" href="xiaoshou">单店单品销售制作</a>
+                        <a class="dropdown-item" href="caipin">套餐菜品名称还原</a>
+                        <a class="dropdown-item" href="xundian">巡店表处理</a>
+                        <a class="dropdown-item" href="jiankong">监控报表生成</a>
+                        <a class="dropdown-item" href="qishu">同环比期计算</a>
+                        <a class="dropdown-item" href="http://tll.bizha.top/#/?id=%e8%87%aa%e5%8a%a8%e5%8c%96%e8%84%9a%e6%9c%ac" class="gray" target="_blank" rel="noopener">说明</a>
+                    </div>
+                </li>
+            </ul>
+        </div>
+    </nav>
+    <div class="files">
+        <h2>已生成的文件列表：</h2>
+        <table id="file-table">
+            <thead>
+                <tr>
+                    <th><a href="#" onclick="sortTable(0, false)">文件名</a></th>
+                    <th><a href="#" onclick="sortTable(1, false)">创建时间</a></th>
+                </tr>
+            </thead>
+            <tbody id="file-list">
+                    {% for file, creation_date in file_list %}
+                    <tr>
+                        <td><a href="/download/{{ file }}">{{ file }}</a></td>
+                        <td>{{ creation_date.strftime('%Y-%m-%d %H:%M:%S') }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        <div class="footer">
+            <p>&copy; 2024 Fuwenyue. All rights reserved.</p>
+        </div>
+
+    <script>
         function sortTable(columnIndex, ascending) {
             const table = document.getElementById("file-table");
             const rows = Array.from(table.rows).slice(1); // 获取所有行，除了表头
@@ -144,40 +220,5 @@
             return ascending;
         }
     </script>
-</head>
-<body>
-    <h1>报货报表自动处理程序ver0.1</h1>
-    <a href="xinpin">新品报货（销售）</a>
-    <a href="danpin">单品报货（90天）</a>
-    <a href="xiaoshou">单店单品销售制作</a>
-    <a href="caipin">套餐菜品名称还原</a>
-    <a href="xundian">巡店表处理</a>
-	<a href="jiankong">监控报表生成</a>
-    <a href="qishu">同环比期计算</a>
-    <a href="http://tll.bizha.top/#/?id=%e8%87%aa%e5%8a%a8%e5%8c%96%e8%84%9a%e6%9c%ac" class="gray" target="_blank">说明 </a>
-    <div class="files">
-        <h2>已生成的文件列表：</h2>
-    <table id="file-table">
-        <thead>
-                <tr>
-                    <th><a href="#" onclick="sortTable(0, false)">文件名</a></th>
-                    <th><a href="#" onclick="sortTable(1, false)">创建时间</a></th>
-                </tr>
-            </thead>
-        <tbody id="file-list">
-                {% for file, creation_date in file_list %}
-                <tr>
-                    <td><a href="/download/{{ file }}">{{ file }}</a></td>
-                    <td>{{ creation_date.strftime('%Y-%m-%d %H:%M:%S') }}</td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
-    </div>
-
-    <div class="footer">
-        <p>&copy; 2024 Fuwenyue. All rights reserved.</p>
-    </div>
-
 </body>
 </html>
