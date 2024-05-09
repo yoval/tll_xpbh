@@ -67,6 +67,15 @@ def calc_zhouqi(days):
         zhouqi = '90日内无报货'
     return zhouqi
 
+
+#计算店内优惠金额(会员日)
+def calculate_store_discount(row):
+    if row['订单子来源'] == '店内点餐':
+        store_discount = row['销售额(元)'] - row['菜品收入(元)']
+    else:
+        store_discount = 0
+    return store_discount
+
 def jiexi(customer_code):
     try:
         filtered_rows = baohuo_df[baohuo_df['客商编码'] == customer_code ]
@@ -141,6 +150,14 @@ def index():
 @app.route('/xinpin')
 def xinpin():
     return render_template('xinpin.html')
+
+@app.route('/huiyuan')
+def huiyuan():
+    return render_template('huiyuan.html')
+
+@app.route('/mendian')
+def mendian():
+    return render_template('mendian.html')
 
 @app.route('/jiankong')
 def jiankong():
@@ -420,6 +437,53 @@ def xiaoshou_upload_files():
     html = f'<a href="{file_link}">下载{caipin_name}_单店单品销售统计_{now}.xlsx</a>'
     return html
 
+@app.route('/mendian_upload', methods=['POST'])
+def mendian_upload_files():
+    now = time.strftime('%Y%m%d_%H%M', time.localtime())
+    output_filename = f'{folder}\\门店管理表_{now}.xlsx'
+    file1 = request.files['file1']
+    file1_path = os.path.join('uploads', f'{now}_{file1.filename}')
+    file1.save(file1_path)
+    mendian_df = mendian_format(file1_path)
+    mendian_df.to_excel(output_filename, index=False)
+    file_link = url_for('static', filename=f'门店管理表_{now}.xlsx')
+    html = f'<a href="{file_link}">下载门店管理表_{now}.xlsx</a>'
+    return html
+
+
+
+#会员日数据处理
+@app.route('/huiyuan_upload', methods=['POST'])
+def huiyuan_upload_files():
+    now = time.strftime('%Y%m%d_%H%M', time.localtime())
+    file1 = request.files['file1']
+    file1_path = os.path.join('uploads', f'{now}_{file1.filename}')
+    file1.save(file1_path)
+    df =  pd.read_excel(file1_path,header=[2,3,4],skipfooter=1)
+    df.columns = df.columns.map(''.join).str.replace(' ', '')
+    old_header = df.columns
+    new_header = [s.split('Unnamed:')[0] if 'Unnamed:' in s else s for s in old_header]
+    df.columns = new_header
+    df_xiaoshou = df.loc[:,['机构编码','商户号','门店','营业日期','菜品名称','订单编号','销售数量','销售额(元)','菜品收入(元)','下单时间','订单分类','菜品下单来源','订单子来源','订单金额(元)','订单收入(元)']]
+    df_xiaoshou['店内优惠'] = df_xiaoshou.apply(lambda row: row['销售额(元)'] - row['菜品收入(元)'] if row['订单子来源'] == '店内点餐' else 0, axis=1)
+    caipin_name = df_xiaoshou['菜品名称'].iloc[0]
+    if '冰淇淋' in caipin_name:
+        caipin_name = '冰淇淋'
+    elif '柠檬水' in caipin_name:
+        caipin_name = '柠檬水'
+    df_xiaoshou['店内优惠'] = df_xiaoshou.apply(calculate_store_discount,axis=1)
+    df_xiaoshou_youhui  = df_xiaoshou[df_xiaoshou['店内优惠'] >= 2] 
+    df_xiaoshou['机构编码'] = df_xiaoshou['机构编码'].str.split('-').str[0]
+    pivot_all = pd.pivot_table(df_xiaoshou, index='机构编码', values='销售数量', aggfunc='sum').reset_index()
+    pivot_youhui = pd.pivot_table(df_xiaoshou_youhui, index='机构编码', values='销售数量', aggfunc='sum').reset_index()
+    df_merge= pd.merge(pivot_all, pivot_youhui, how='left', on='机构编码',suffixes=('_总', '_优惠')).fillna(0)
+    output_filename = f'{folder}\\{caipin_name}会员日销售情况_{now}.xlsx'
+    with pd.ExcelWriter(output_filename, engine='openpyxl') as writer:
+        df_xiaoshou.to_excel(writer, sheet_name='底表', index=False)
+        df_merge.to_excel(writer, sheet_name='分析表', index=False)
+    file_link = url_for('static', filename=f'{caipin_name}会员日销售情况_{now}.xlsx')
+    html = f'<a href="{file_link}">{caipin_name}会员日销售情况_{now}.xlsx</a>'
+    return html
 
 @app.route('/jiankong_upload', methods=['POST'])
 def jiankong_upload_files():
@@ -454,7 +518,6 @@ def jiankong_upload_files():
     file_link = url_for('static', filename=f'门店监控状态统计_{now}.xlsx')
     html = f'<a href="{file_link}">下载门店监控状态统计_{now}.xlsx</a>'
     return html
-
 
 @app.route('/qishu', methods=['GET', 'POST'])
 def qishu():
