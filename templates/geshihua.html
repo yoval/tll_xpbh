@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>巡店表自动生成</title>
+    <title>渠道销售格式化</title>
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -47,7 +47,7 @@
             const file1Size = file1.files[0].size;
             const file2Size = file2.files[0].size;
 
-            if (file1Size > 10 * 1024 * 1024 || file2Size > 10 * 1024 * 1024) {
+            if (file1Size > 10 * 1024 * 1024 || file2Size > 50 * 1024 * 1024) {
                 alert("文件大小不能超过10MB");
                 event.preventDefault();
                 return;
@@ -65,15 +65,15 @@
     </script>
 </head>
 <body>
-    <h1>巡店表自动生成（交叉巡店）</h1>
-    <form action="/xundian_upload" method="POST" enctype="multipart/form-data" onsubmit="validateForm(event)">
+    <h1>渠道销售数据格式化</h1>
+    <form action="/geshihua_upload" method="POST" enctype="multipart/form-data" onsubmit="validateForm(event)">
         <div class="input-group">
           <input type="file" name="file1" id="file1">
           <label for="file1">（必选）门店管理文件</label>
         </div>
         <div class="input-group">
           <input type="file" name="file2" id="file2">
-          <label for="file2">（必选）门店综合巡检</label>
+          <label for="file2">（必选）渠道销售文件</label>
         </div>
       <input type="submit" value="上传文件">
     </form>

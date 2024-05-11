@@ -4,7 +4,7 @@ Created on Wed Apr 10 14:06:51 2024
 
 @author: Administrator
 """
-from my_module import mendian_format, meituan_caipin_format
+from my_module import mendian_format, meituan_caipin_format,format_meituan_table,format_hualala_table
 from flask import Flask, request, url_for, render_template,render_template_string,send_from_directory
 import os
 import pandas as pd
@@ -15,6 +15,8 @@ from datetime import datetime, timedelta
 import markdown
 from dateutil.relativedelta import relativedelta
 import socket,requests
+import math
+import re
 
 #输出文件夹
 folder = 'outputs'
@@ -125,7 +127,17 @@ def jiankong_process_stores(df):
     pivot_stores["监控门店数"] = pivot_stores["完全在线"] + pivot_stores["部分在线"] + pivot_stores["离线"]
     return pivot_stores
 
-
+# 门店周期管理加序号
+def add_number(text):
+    if type(text) == float or text == '':
+        return ""
+    # 根据回车符分割文本
+    lines = text.split('\n')
+    # 给每一行添加编号
+    numbered_lines = [f'{i + 1}.{line}' for i, line in enumerate(lines)]
+    # 将编号后的行重新组合成文本
+    numbered_text = '\n'.join(numbered_lines)
+    return numbered_text
 
 # 创建 Flask 应用
 app = Flask(__name__, template_folder='./templates',static_folder='outputs')
@@ -146,23 +158,28 @@ def index():
     if len(sorted_file_list) > 13:
        sorted_file_list = sorted_file_list[:13]
     return render_template('index.html', file_list=sorted_file_list)
-
+# 新品
 @app.route('/xinpin')
 def xinpin():
     return render_template('xinpin.html')
-
+# 会员日
 @app.route('/huiyuan')
 def huiyuan():
     return render_template('huiyuan.html')
-
+# 门店格式化
 @app.route('/mendian')
 def mendian():
     return render_template('mendian.html')
-
+# 监控报表
 @app.route('/jiankong')
 def jiankong():
     return render_template('jiankong.html')
+# 报表格式化
+@app.route('/geshihua')
+def geshihua():
+    return render_template('geshihua.html')
 
+# 文档
 @app.route('/readme')
 def readme():
     with open('templates/log.md', 'r', encoding='utf-8') as file:
@@ -178,6 +195,10 @@ def xiaoshou():
 @app.route('/xundian')
 def xundian():
     return render_template('xundian.html')
+
+@app.route('/zhouqi')
+def zhouqi():
+    return render_template('zhouqi.html')
 
 @app.route('/caipin')
 def caipin():
@@ -211,6 +232,48 @@ def xinpin_upload_files():
     file_link = url_for('static', filename=gen_file_name)
     html = f'<a href="{file_link}">下载{gen_file_name}</a>'
     return render_template_string(html)
+
+
+# 销售格式化
+@app.route('/geshihua_upload', methods=['POST'])
+def geshihua_upload_files():
+    global now
+    now = time.strftime('%Y%m%d_%H%M', time.localtime())
+    # 获取上传的文件
+    file1 = request.files['file1']
+    file2 = request.files['file2']
+    file1_path = os.path.join('uploads', f'{now}_{file1.filename}')
+    file1.save(file1_path)
+    file2_path = os.path.join('uploads', f'{now}_{file2.filename}')
+    file2.save(file2_path)
+    
+    df_check = pd.read_excel(file2_path, nrows=2)
+    mendian_df = mendian_format(file1_path)
+    
+    if type(df_check.iloc[0][0]) !=float:
+        if '按订单来源统计' in df_check.iloc[0][0]:
+            pattern = r'\d{4}/\d{2}/\d{2}'
+            dates = re.findall(pattern,  df_check.iloc[0][0])
+            shiduan = dates[0] + '~' + dates[1]
+            df = format_meituan_table(file2_path)
+    else:
+        if '142渠道销售统计表' in df_check.columns[0]:
+            pattern = r'(\d{4})(\d{2})(\d{2})--(\d{4})(\d{2})(\d{2})'
+            date_range = re.search(pattern, df_check.columns[0])
+            start_date = f"{date_range.group(1)}/{date_range.group(2)}/{date_range.group(3)}"
+            end_date = f"{date_range.group(4)}/{date_range.group(5)}/{date_range.group(6)}"
+            shiduan = f"{start_date}~{end_date}"
+            df = format_hualala_table(file2_path)
+
+    mendian_df['时段'] = shiduan
+    df_result = pd.merge(mendian_df, df, how='left', left_on='门店编码',right_on = '门店编码')
+    output_filename = f'{folder}\\各渠道销售统计_{now}.xlsx'
+    df_result.to_excel(output_filename,index=False)
+    file_link = url_for('static', filename=f'各渠道销售统计_{now}.xlsx')
+    html = f'<a href="{file_link}">下载各渠道销售统计_{now}.xlsx</a>'
+    return render_template_string(html)
+    
+    
 
 
 @app.route('/download/<filename>')
@@ -273,13 +336,23 @@ def danpin_upload_files():
 
 def xundian_process_files(file1_path, file2_path):
     now = time.strftime('%Y%m%d_%H%M', time.localtime())
+    current_month = time.strftime("%Y-%m", time.localtime())
     output_filename = f'{folder}\\市场部巡店表整合_{now}.xlsx'
     # 巡店表
     xundian_df = pd.read_excel(file2_path, header = 2)
+    xundian_df = xundian_df[xundian_df['巡检日期'].str.contains(current_month)]
+    if len(xundian_df) ==0:
+        xundian_df = pd.read_excel(file2_path, header = 2)
     xundian_df = xundian_df.sort_values(by='巡检日期', ascending=True)
     xundian_df = xundian_df.fillna("")
+    #xundian_df.dropna(subset=['门店编号', '大区经理', '非原物料得分', '过期'], inplace=True)
+    xundian_df = xundian_df.dropna(subset=['门店编号', '合计得分', '非原物料得分', '过保质期和变质得分','隔夜物料得分','效期问题得分','营业额同比提升得分','线上平台得分','私域群运营得分',
+                                           '交叉污染得分','水质和冰块得分','证照齐全公示且有效得分','现场操作得分','整体形象得分','仪容仪表得分','店内卫生得分','设备设施清洁保养得分','服务态度得分',
+                                           ])
+    
     # 门店表
     mendian_df = mendian_format(file1_path)
+    xundian_df = pd.merge(xundian_df, mendian_df, how='left', left_on='门店编号',right_on='门店编码',suffixes=('_巡店表', ''))
     mendian_df['是否交叉巡店'] = 0
     mendian_df['交叉巡店记录'] = ''
     mendian_df['是否自查'] = 0
@@ -304,19 +377,17 @@ def xundian_process_files(file1_path, file2_path):
                 xjrq = date_obj.strftime("%Y%m%d")
                 if xjr == qyjl:#自查
                     mendian_df.loc[index, '是否自查'] = 1
-                    mendian_df.loc[index, '自查记录'] = str(mendian_df.loc[index, '自查记录'] ) +'，'+ xjrq + ':' + xjr
+                    mendian_df.loc[index, '自查记录'] = str(mendian_df.loc[index, '自查记录'] ) + xjrq + ':' + xjr
                     jiagou_df.loc[jiagou_df['区域经理'] == xjr, '自查数量']  = jiagou_df.loc[jiagou_df['区域经理'] == xjr, '自查数量']  + 1
                 else: #交叉巡店
                     mendian_df.loc[index, '是否交叉巡店'] = 1
-                    mendian_df.loc[index, '交叉巡店记录'] = str(mendian_df.loc[index, '交叉巡店记录'] ) + '，' + xjrq + ':' + xjr
+                    mendian_df.loc[index, '交叉巡店记录'] = str(mendian_df.loc[index, '交叉巡店记录'] ) + xjrq + ':' + xjr
                     jiagou_df.loc[jiagou_df['区域经理'] == xjr, '跨区数量']  = jiagou_df.loc[jiagou_df['区域经理'] == xjr, '跨区数量']  + 1
 
     mendian_df['自查记录'] = mendian_df['自查记录'].apply(add_number)
     mendian_df['交叉巡店记录'] = mendian_df['交叉巡店记录'] .apply(add_number)
     mendian_df['是否被巡查'] = np.where((mendian_df['是否交叉巡店'] + mendian_df['是否自查']) == 0, 0, 1)
     mendian_df['门店数量'] = 1 
-    
-    
     filtered_df = mendian_df[mendian_df['运营状态'] == '营业中']
     pivot_df = filtered_df.pivot_table(index=['大区经理', '省区经理', '区域经理'],
                                     values=['门店数量', '是否被巡查', '是否交叉巡店', '是否自查'],
@@ -331,6 +402,8 @@ def xundian_process_files(file1_path, file2_path):
         '是否被巡查':'被巡查数量'
         }, inplace=True)
     pivot_df = pivot_df.loc[:, ['大区经理', '省区经理', '区域经理', '门店数量','被巡查数量','被巡查占比','自查数量','自查占比','被交叉巡店数量','被交叉巡查占比']]
+    pivot_df['距40%相差门店数'] = (pivot_df['门店数量'] * 0.4 - pivot_df['被交叉巡店数量']).apply(lambda x: math.ceil(x)).astype(int)
+    pivot_df['距40%相差门店数'] = pivot_df['距40%相差门店数'].clip(lower=0, upper=10000)
     
     writer = pd.ExcelWriter(output_filename, engine='openpyxl')
     mendian_df.to_excel(writer, sheet_name='门店被巡详表', index=False)
@@ -411,7 +484,7 @@ def caipin_upload_files():
         result_df['合计数量'] = result_df['销售数量'] *result_df['数量']
     except:
         pass
-    result_df.to_excel(output_filename, index=False)
+    result_df.to_excel(output_filename,sheet_name='菜品名称还原', index=False)
     file_link = url_for('static', filename=f'菜品标准名称还原_{now}.xlsx')
     html = f'<a href="{file_link}">下载菜品标准名称还原_{now}.xlsx</a>'
     return html
@@ -432,7 +505,7 @@ def xiaoshou_upload_files():
     col_name = f'{caipin_name}销售'
     df_xiaoshou[col_name] =  df_xiaoshou['销售数量'].apply(lambda x: '有销售' if x > 0 else '无销售')
     output_filename = f'{folder}\\{caipin_name}_单店单品销售统计_{now}.xlsx'
-    df_xiaoshou.to_excel(output_filename, index=False)
+    df_xiaoshou.to_excel(output_filename,sheet_name = '销售信息', index=False)
     file_link = url_for('static', filename=f'{caipin_name}_单店单品销售统计_{now}.xlsx')
     html = f'<a href="{file_link}">下载{caipin_name}_单店单品销售统计_{now}.xlsx</a>'
     return html
@@ -445,14 +518,14 @@ def mendian_upload_files():
     file1_path = os.path.join('uploads', f'{now}_{file1.filename}')
     file1.save(file1_path)
     mendian_df = mendian_format(file1_path)
-    mendian_df.to_excel(output_filename, index=False)
+    mendian_df.to_excel(output_filename, sheet_name='门店信息表',index=False)
     file_link = url_for('static', filename=f'门店管理表_{now}.xlsx')
     html = f'<a href="{file_link}">下载门店管理表_{now}.xlsx</a>'
     return html
 
 
 
-#会员日数据处理
+# 会员日数据处理
 @app.route('/huiyuan_upload', methods=['POST'])
 def huiyuan_upload_files():
     now = time.strftime('%Y%m%d_%H%M', time.localtime())
@@ -496,6 +569,11 @@ def jiankong_upload_files():
     file2.save(file2_path)
     mendian_df = mendian_format(file1_path)
     jiankong_df = pd.read_excel(file2_path,header=2)
+    #去除门店
+    quchu_df = pd.read_excel(r"C:\Users\Administrator\OneDrive\甜啦啦\市场部基础数据\监控去除门店.xlsx")
+    quchu_store_ids = quchu_df['门店编号'].to_list()
+    jiankong_df = jiankong_df[~jiankong_df['门店编号'].isin(quchu_store_ids)]
+    #补齐门店编号
     new_store_codes = {'城中万达广场': 'TLL07669'}
     for store_name, new_code in new_store_codes.items():
         jiankong_df.loc[jiankong_df['门店名称'] == store_name, '门店编号'] = new_code
@@ -519,6 +597,72 @@ def jiankong_upload_files():
     html = f'<a href="{file_link}">下载门店监控状态统计_{now}.xlsx</a>'
     return html
 
+@app.route('/zhouqi_upload', methods=['POST'])
+def zhouqi_upload_files():
+    now = time.strftime('%Y%m%d_%H%M', time.localtime())
+    file1 = request.files['file1']
+    file2 = request.files['file2']
+    file1_path = os.path.join('uploads', f'{now}_{file1.filename}')
+    file1.save(file1_path)
+    file2_path = os.path.join('uploads', f'{now}_{file2.filename}')
+    file2.save(file2_path)
+    md_df = mendian_format(file1_path)
+    md_df.set_index('门店编码', inplace=True)
+    md_df['迁址日期'] = ''
+    md_df['最后一次迁址合同登记日期']= ''
+    md_df['过户日期'] = ''
+    md_df['最后一次过户合同登记日期'] = ''
+    md_df['最后一次续约合同登记日期'] = ''
+    
+    ht_df = pd.read_excel(file2,header=1)
+    ht_df = ht_df.dropna(subset=['合同开始日期', '合同结束日期'])
+    custom_order = ['作废','解约','过期','生效']
+    ht_df['合同状态'] = ht_df['合同状态'].astype(pd.CategoricalDtype(categories=custom_order, ordered=True))
+    ht_df = ht_df.sort_values(by=['登记日期', '合同状态'], ascending=[True, True])
+    
+    for index, row in md_df.iterrows(): #门店编号 index
+        h_df = ht_df[ht_df['门店编号'] == index]
+        md_df.loc[index, '合同结束日期'] = h_df['合同结束日期'].max()
+        md_df.loc[index, '合同开始日期'] = h_df['合同开始日期']. min()
+        for i,j in h_df.iterrows():
+            if j.合同类型 == "初签":
+                djrq = j.登记日期
+                md_df.loc[index, '合同登记日期'] = djrq
+            elif j.合同类型 == "补录":
+                djrq = j.登记日期
+                md_df.loc[index, '合同登记日期'] = str(djrq)+'(补录)'
+            elif j.合同类型 == "迁址":
+                djrq = j.登记日期
+                md_df.loc[index, '迁址日期'] =str(md_df.loc[index, '迁址日期']) +'\n'+ djrq
+                md_df.loc[index, '最后一次迁址合同登记日期'] = djrq
+            elif j.合同类型 == "过户":
+                djrq = j.登记日期
+                md_df.loc[index, '过户日期'] =str(md_df.loc[index, '过户日期']) +'\n'+ djrq
+                md_df.loc[index, '最后一次过户合同登记日期'] = djrq
+            elif j.合同类型 == "续约":
+                djrq = j.登记日期
+                md_df.loc[index, '最后一次续约合同登记日期'] = djrq
+    
+    md_df['迁址日期'] = md_df['迁址日期'].str.lstrip('\n')
+    md_df['过户日期'] = md_df['过户日期'].str.lstrip('\n')
+    
+    md_df['迁址日期'] = md_df['迁址日期'].apply(add_number)
+    md_df['过户日期'] = md_df['过户日期'].apply(add_number)
+    md_df = md_df.reset_index()
+    md_df = md_df.loc[:,['门店编码','门店名称','运营状态','大区经理','省区经理','区域经理','合同登记日期','合同开始日期','合同结束日期','迁址日期','最后一次迁址合同登记日期','过户日期','最后一次过户合同登记日期','最后一次续约合同登记日期']]
+    md_df = md_df.rename(columns={'最后一次迁址合同登记日期': '最新迁址日期', '最后一次过户合同登记日期': '最新过户日期','最后一次续约合同登记日期':'最新续约日期'})
+    
+    md_df['合同登记日期'] = md_df['合同登记日期'].replace('nan', '')
+    output_filename = f'{folder}\\门店周期管理_{now}.xlsx'
+    with pd.ExcelWriter(output_filename, engine='openpyxl') as writer:
+        md_df.to_excel(writer, sheet_name='门店周期管理', index=False)
+        
+    file_link = url_for('static', filename=f'门店周期管理_{now}.xlsx')
+    html = f'<a href="{file_link}">下载门店周期管理_{now}.xlsx.xlsx</a>'
+    return html
+
+
+
 @app.route('/qishu', methods=['GET', 'POST'])
 def qishu():
     result = []
@@ -539,7 +683,6 @@ def qishu():
 def get_local_ip():
     s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     try:
-        # 不需要连接到一个真实的服务器，只需要让操作系统分配一个端口
         s.connect(('10.255.255.255', 1))
         ip = s.getsockname()[0]
     except Exception:
@@ -547,6 +690,9 @@ def get_local_ip():
     finally:
         s.close()
     return ip
+
+
+
 
 
 post_url = 'https://note.bizha.top/tianlala' 

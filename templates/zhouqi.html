@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>巡店表自动生成</title>
+    <title>门店生命周期管理</title>
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -65,15 +65,15 @@
     </script>
 </head>
 <body>
-    <h1>巡店表自动生成（交叉巡店）</h1>
-    <form action="/xundian_upload" method="POST" enctype="multipart/form-data" onsubmit="validateForm(event)">
+    <h1>门店生命周期管理</h1>
+    <form action="/zhouqi_upload" method="POST" enctype="multipart/form-data" onsubmit="validateForm(event)">
         <div class="input-group">
           <input type="file" name="file1" id="file1">
           <label for="file1">（必选）门店管理文件</label>
         </div>
         <div class="input-group">
           <input type="file" name="file2" id="file2">
-          <label for="file2">（必选）门店综合巡检</label>
+          <label for="file2">（必选）正式合同管理</label>
         </div>
       <input type="submit" value="上传文件">
     </form>

@@ -89,3 +89,70 @@ def check_u8c_export(df):
     print('当报货表中，共有%s件商品'%len(df['存货名称'].unique()))
     return df
 
+def format_meituan_table(file):
+    columns = ['门店编码', '流水金额', '实收金额', '订单数', '堂食流水', '堂食实收', '堂食订单数', '外卖流水', '外卖实收', '外卖订单数', '小程序流水', '小程序实收', '小程序订单数']
+    df_emt = pd.DataFrame(columns=columns)
+    df =  pd.read_excel(file,header=[2,3,4],skipfooter=1)
+    df.columns = df.columns.map(''.join).str.replace(' ', '')
+    old_header = df.columns
+    new_header = [s.split('Unnamed:')[0] if 'Unnamed:' in s else s for s in old_header]
+    df.columns = new_header
+    df_emt['门店编码'] = df['机构编码']
+    df_emt['流水金额'] = df['营业额（元）']
+    df_emt['实收金额'] = df['营业收入（元）']
+    df_emt['订单数'] = df['订单量']
+    df_emt['堂食流水'] = df['渠道营业构成收银POS营业额（元）']
+    df_emt['堂食实收'] = df['渠道营业构成收银POS营业收入（元）']
+    df_emt['堂食订单数'] = df['渠道营业构成收银POS订单量']
+    df_emt['外卖流水'] = df['渠道营业构成饿了么外卖营业额（元）'] + df['渠道营业构成美团外卖营业额（元）']
+    df_emt['外卖实收'] = df['渠道营业构成饿了么外卖营业收入（元）'] + df['渠道营业构成美团外卖营业收入（元）']
+    df_emt['外卖订单数'] = df['渠道营业构成饿了么外卖订单量'] + df['渠道营业构成美团外卖订单量']
+    df_emt['小程序流水'] = df['渠道营业构成第三方小程序营业额（元）']
+    df_emt['小程序实收'] = df['渠道营业构成第三方小程序营业收入（元）']
+    df_emt['小程序订单数'] = df['渠道营业构成第三方小程序订单量'] 
+    df_emt['门店编码'] = df_emt['门店编码'].str.split('-').str[0]
+    pivot_df = df_emt.groupby('门店编码').sum().reset_index()
+    pivot_df = pivot_df[columns]
+    return pivot_df
+
+
+def format_hualala_table(file):
+    shouyinji_path = r"C:\Users\Administrator\OneDrive\甜啦啦\市场部基础数据\收银机管理表_2024.3.22.xlsx"
+    df_syj = pd.read_excel(shouyinji_path)
+    df_syj = df_syj[['门店编码','组织编码']]
+    df_syj = df_syj.dropna(subset=['组织编码'])
+    columns = ['门店编码', '流水金额', '实收金额', '订单数', '堂食流水', '堂食实收', '堂食订单数', '外卖流水', '外卖实收', '外卖订单数', '小程序流水', '小程序实收', '小程序订单数']
+    df_emt = pd.DataFrame(columns=columns)
+    df = pd.read_excel(file,header=[2,3],skipfooter=1)
+    df.columns = df.columns.map(''.join).str.replace(' ', '')
+    old_header = df.columns
+    new_header = [s.split('Unnamed:')[0] if 'Unnamed:' in s else s for s in old_header]
+    df.columns = new_header
+    df = df.dropna(subset=['店铺组织编码'])
+    df= pd.merge(df, df_syj, how='left', left_on='店铺组织编码',right_on = '组织编码')
+    df_emt['门店编码'] = df['门店编码']
+    df_emt['流水金额'] = df['合计流水金额']
+    df_emt['实收金额'] = df['合计实收金额']
+    df_emt['订单数'] = df['合计账单数']
+    df_emt['外卖流水'] = df['美团外卖流水金额'] + df['饿了么外卖流水金额']
+    df_emt['外卖实收'] = df['美团外卖实收金额'] + df['饿了么外卖实收金额']
+    df_emt['外卖订单数'] = df['美团外卖账单数'] + df['饿了么外卖账单数']
+    df_emt['小程序流水'] = df['微信小程序流水金额'] + df['支付宝小程序流水金额']
+    df_emt['小程序实收'] = df['微信小程序实收金额'] + df['支付宝小程序实收金额']
+    df_emt['小程序订单数'] = df['微信小程序账单数'] + df['支付宝小程序账单数']
+    df_emt['堂食流水'] = df_emt['流水金额'] - df_emt['外卖流水'] - df_emt['小程序流水'] 
+    df_emt['堂食实收'] = df_emt['实收金额'] - df_emt['外卖实收'] - df_emt['小程序实收'] 
+    df_emt['堂食订单数'] = df_emt['订单数'] - df_emt['外卖订单数'] - df_emt['小程序订单数'] 
+    pivot_df = df_emt.groupby('门店编码').sum().reset_index()
+    pivot_df = pivot_df[columns]
+    return pivot_df
+
+
+
+
+
+
+
+
+
+
