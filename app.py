@@ -17,7 +17,8 @@ from dateutil.relativedelta import relativedelta
 import socket,requests
 import math
 import re
-
+import openpyxl
+from openpyxl.styles import PatternFill
 #输出文件夹
 folder = 'outputs'
 
@@ -242,9 +243,11 @@ def geshihua_upload_files():
     # 获取上传的文件
     file1 = request.files['file1']
     file2 = request.files['file2']
-    file1_path = os.path.join('uploads', f'{now}_{file1.filename}')
+    mendian_file_name = f'{now}_门店管理原表.xlsx'
+    xiaoshou_file_name = f'{now}_菜品销售原表.xlsx'
+    file1_path = os.path.join('uploads', mendian_file_name)
     file1.save(file1_path)
-    file2_path = os.path.join('uploads', f'{now}_{file2.filename}')
+    file2_path = os.path.join('uploads', xiaoshou_file_name)
     file2.save(file2_path)
     
     df_check = pd.read_excel(file2_path, nrows=2)
@@ -266,11 +269,17 @@ def geshihua_upload_files():
             df = format_hualala_table(file2_path)
 
     mendian_df['时段'] = shiduan
+    start_date, end_date = shiduan.split("~")
+    
+    formatted_start_date = start_date.replace("/", "")
+    formatted_end_date = end_date.replace("/", "")
+    formatted_date_range = f"{formatted_start_date}_{formatted_end_date}"
+    
     df_result = pd.merge(mendian_df, df, how='left', left_on='门店编码',right_on = '门店编码')
-    output_filename = f'{folder}\\各渠道销售统计_{now}.xlsx'
+    output_filename = f'{folder}\\各渠道销售统计_{formatted_date_range}_{now}.xlsx'
     df_result.to_excel(output_filename,index=False)
-    file_link = url_for('static', filename=f'各渠道销售统计_{now}.xlsx')
-    html = f'<a href="{file_link}">下载各渠道销售统计_{now}.xlsx</a>'
+    file_link = url_for('static', filename=f'各渠道销售统计_{formatted_date_range}_{now}.xlsx')
+    html = f'<a href="{file_link}">下载各渠道销售统计_{formatted_date_range}_{now}.xlsx</a>'
     return render_template_string(html)
     
     
@@ -324,9 +333,11 @@ def danpin_upload_files():
     now = time.strftime('%Y%m%d_%H%M', time.localtime())
     file1 = request.files['file1']
     file2 = request.files['file2']
-    file1_path = os.path.join('uploads', f'{now}_{file1.filename}')
+    mendian_file_name = f'{now}_门店管理原表.xlsx'
+    danping_file_name = f'{now}_单品报货原表.xlsx'
+    file1_path = os.path.join('uploads',mendian_file_name)
     file1.save(file1_path)
-    file2_path = os.path.join('uploads', f'{now}_{file2.filename}')
+    file2_path = os.path.join('uploads', danping_file_name)
     file2.save(file2_path)
     gen_file_name = danpin_process_files(file1_path, file2_path)
     file_link = url_for('static', filename=gen_file_name)
@@ -404,12 +415,50 @@ def xundian_process_files(file1_path, file2_path):
     pivot_df = pivot_df.loc[:, ['大区经理', '省区经理', '区域经理', '门店数量','被巡查数量','被巡查占比','自查数量','自查占比','被交叉巡店数量','被交叉巡查占比']]
     pivot_df['距40%相差门店数'] = (pivot_df['门店数量'] * 0.4 - pivot_df['被交叉巡店数量']).apply(lambda x: math.ceil(x)).astype(int)
     pivot_df['距40%相差门店数'] = pivot_df['距40%相差门店数'].clip(lower=0, upper=10000)
+    # 增加汇总行
+    result = pivot_df.pivot_table(index=["大区经理", "省区经理", "区域经理"], aggfunc="sum")
+    summary_by_daqu_manager = result.groupby(level="大区经理").sum().reset_index()
+    summary_by_daqu_manager['被巡查占比'] = summary_by_daqu_manager['被巡查数量']/summary_by_daqu_manager['门店数量']
+    summary_by_daqu_manager['自查占比'] = summary_by_daqu_manager['自查数量']/summary_by_daqu_manager['门店数量']
+    summary_by_daqu_manager['被交叉巡查占比'] = summary_by_daqu_manager['被交叉巡店数量']/summary_by_daqu_manager['门店数量']
     
+    summary_by_sheng_manager = result.groupby(level=["大区经理", "省区经理"]).sum().reset_index()
+    summary_by_sheng_manager['被巡查占比'] = summary_by_sheng_manager['被巡查数量']/summary_by_sheng_manager['门店数量']
+    summary_by_sheng_manager['自查占比'] = summary_by_sheng_manager['自查数量']/summary_by_sheng_manager['门店数量']
+    summary_by_sheng_manager['被交叉巡查占比'] = summary_by_sheng_manager['被交叉巡店数量']/summary_by_sheng_manager['门店数量']
+    
+    pivot_df = pd.concat([pivot_df, summary_by_daqu_manager], axis=0, ignore_index=True)
+    pivot_df = pd.concat([pivot_df, summary_by_sheng_manager], axis=0, ignore_index=True)
+    pivot_df = pivot_df.sort_values(['大区经理', '省区经理', '区域经理'], ascending=[True, True, True])
+    
+    # 查找“区域经理”列的空值并根据“省区经理”列是否为空进行修改
+    pivot_df["区域经理"] = pivot_df.apply(
+        lambda row: "大区合计" if pd.isna(row["区域经理"]) and pd.isna(row["省区经理"]) else "省区合计" if pd.isna(row["区域经理"]) else row["区域经理"],
+        axis=1,
+    )
+    #保存
     writer = pd.ExcelWriter(output_filename, engine='openpyxl')
     mendian_df.to_excel(writer, sheet_name='门店被巡详表', index=False)
     pivot_df.to_excel(writer, sheet_name='营业中门店被巡', index=False)
     jiagou_df.to_excel(writer, sheet_name='经理巡店次数', index=False)
     writer.close()
+    #设置格式
+    sheng_fill_color = 'EEECE1'
+    daqu_fill_color = '948A54'
+    workbook = openpyxl.load_workbook(output_filename) 
+    for worksheet in workbook.worksheets:
+        for column in worksheet.columns:
+            if '占比' in column[0].value:
+                for cell in column:
+                    cell.number_format = '0.00%'
+        for row in worksheet.iter_rows():
+            if row[2].value == "省区合计":
+                for cell in row[0:18]: 
+                    cell.fill = PatternFill(start_color=sheng_fill_color, end_color=sheng_fill_color, fill_type="solid")
+            elif row[2].value == "大区合计":
+                for cell in row[0:18]: 
+                    cell.fill = PatternFill(start_color=daqu_fill_color, end_color=daqu_fill_color, fill_type="solid")
+    workbook.save(output_filename)
     return f'市场部巡店表整合_{now}.xlsx'
 
 @app.route('/xundian_upload', methods=['POST'])
@@ -418,9 +467,11 @@ def xundian_upload_files():
     now = time.strftime('%Y%m%d_%H%M', time.localtime())
     file1 = request.files['file1']
     file2 = request.files['file2']
-    file1_path = os.path.join('uploads', f'{now}_{file1.filename}')
+    mendian_file_name = f'{now}_门店管理原表.xlsx'
+    xunjian_file_name = f'{now}_门店综合巡检原表.xlsx'
+    file1_path = os.path.join('uploads', mendian_file_name)
     file1.save(file1_path)
-    file2_path = os.path.join('uploads', f'{now}_{file2.filename}')
+    file2_path = os.path.join('uploads', xunjian_file_name)
     file2.save(file2_path)
     gen_file_name = xundian_process_files(file1_path, file2_path)
     file_link = url_for('static', filename=gen_file_name)
@@ -466,9 +517,11 @@ def caipin_upload_files():
     # 获取上传的文件
     file1 = request.files['file1']
     file2 = request.files['file2']
-    file1_path = os.path.join('uploads', f'{now}_{file1.filename}')
+    mendian_file_name = f'{now}_门店管理原表.xlsx'
+    caipin_file_name = f'{now}_菜品销售原表.xlsx'
+    file1_path = os.path.join('uploads',mendian_file_name)
     file1.save(file1_path)
-    file2_path = os.path.join('uploads', f'{now}_{file2.filename}')
+    file2_path = os.path.join('uploads', caipin_file_name)
     file2.save(file2_path)
     try:
         caipin_df = pd.read_excel(file1_path,header=2)
@@ -495,9 +548,11 @@ def xiaoshou_upload_files():
     now = time.strftime('%Y%m%d_%H%M', time.localtime())
     file1 = request.files['file1']
     file2 = request.files['file2']
-    file1_path = os.path.join('uploads', f'{now}_{file1.filename}')
+    mendian_file_name = f'{now}_门店管理原表.xlsx'
+    caipin_file_name = f'{now}_菜品销售原表.xlsx'
+    file1_path = os.path.join('uploads', mendian_file_name)
     file1.save(file1_path)
-    file2_path = os.path.join('uploads', f'{now}_{file2.filename}')
+    file2_path = os.path.join('uploads',caipin_file_name)
     file2.save(file2_path)
     mendian_df = mendian_format(file1_path)
     xiaoshou_df,caipin_name = meituan_caipin_format(file2_path)
@@ -514,8 +569,9 @@ def xiaoshou_upload_files():
 def mendian_upload_files():
     now = time.strftime('%Y%m%d_%H%M', time.localtime())
     output_filename = f'{folder}\\门店管理表_{now}.xlsx'
+    mendian_file_name = f'{now}_门店管理原表.xlsx'
     file1 = request.files['file1']
-    file1_path = os.path.join('uploads', f'{now}_{file1.filename}')
+    file1_path = os.path.join('uploads', mendian_file_name)
     file1.save(file1_path)
     mendian_df = mendian_format(file1_path)
     mendian_df.to_excel(output_filename, sheet_name='门店信息表',index=False)
@@ -530,7 +586,8 @@ def mendian_upload_files():
 def huiyuan_upload_files():
     now = time.strftime('%Y%m%d_%H%M', time.localtime())
     file1 = request.files['file1']
-    file1_path = os.path.join('uploads', f'{now}_{file1.filename}')
+    caipin_file_name = f'{now}_菜品销售原表.xlsx'
+    file1_path = os.path.join('uploads',caipin_file_name)
     file1.save(file1_path)
     df =  pd.read_excel(file1_path,header=[2,3,4],skipfooter=1)
     df.columns = df.columns.map(''.join).str.replace(' ', '')
@@ -563,9 +620,11 @@ def jiankong_upload_files():
     now = time.strftime('%Y%m%d_%H%M', time.localtime())
     file1 = request.files['file1']
     file2 = request.files['file2']
-    file1_path = os.path.join('uploads', f'{now}_{file1.filename}')
+    mendian_file_name = f'{now}_门店管理原表.xlsx'
+    jiankong_file_name = f'{now}_监控状态统计原表.xlsx'
+    file1_path = os.path.join('uploads',mendian_file_name)
     file1.save(file1_path)
-    file2_path = os.path.join('uploads', f'{now}_{file2.filename}')
+    file2_path = os.path.join('uploads',jiankong_file_name)
     file2.save(file2_path)
     mendian_df = mendian_format(file1_path)
     jiankong_df = pd.read_excel(file2_path,header=2)
@@ -602,9 +661,11 @@ def zhouqi_upload_files():
     now = time.strftime('%Y%m%d_%H%M', time.localtime())
     file1 = request.files['file1']
     file2 = request.files['file2']
-    file1_path = os.path.join('uploads', f'{now}_{file1.filename}')
+    mendian_file_name = f'{now}_门店管理原表.xlsx'
+    jiankong_file_name = f'{now}_正式合同原表.xlsx'
+    file1_path = os.path.join('uploads', mendian_file_name)
     file1.save(file1_path)
-    file2_path = os.path.join('uploads', f'{now}_{file2.filename}')
+    file2_path = os.path.join('uploads', jiankong_file_name)
     file2.save(file2_path)
     md_df = mendian_format(file1_path)
     md_df.set_index('门店编码', inplace=True)
