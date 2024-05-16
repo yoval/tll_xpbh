@@ -19,6 +19,7 @@ import math
 import re
 import openpyxl
 from openpyxl.styles import PatternFill
+import glob
 #输出文件夹
 folder = 'outputs'
 
@@ -74,7 +75,7 @@ def calc_zhouqi(days):
 #计算店内优惠金额(会员日)
 def calculate_store_discount(row):
     if row['订单子来源'] == '店内点餐':
-        store_discount = row['销售额(元)'] - row['菜品收入(元)']
+        store_discount = row['订单金额(元)'] - row['订单收入(元)']
     else:
         store_discount = 0
     return store_discount
@@ -429,7 +430,8 @@ def xundian_process_files(file1_path, file2_path):
     
     pivot_df = pd.concat([pivot_df, summary_by_daqu_manager], axis=0, ignore_index=True)
     pivot_df = pd.concat([pivot_df, summary_by_sheng_manager], axis=0, ignore_index=True)
-    pivot_df = pivot_df.sort_values(['大区经理', '省区经理', '区域经理'], ascending=[True, True, True])
+    pivot_df['大区经理'] = pivot_df['大区经理'].astype(manager_type)
+    pivot_df = pivot_df.sort_values(['大区经理', '省区经理', '区域经理'], ascending=True)
     
     # 查找“区域经理”列的空值并根据“省区经理”列是否为空进行修改
     pivot_df["区域经理"] = pivot_df.apply(
@@ -496,7 +498,8 @@ def danpin_process_files(file1_path, file2_path):
     mendian_df['上次报货距今'] = mendian_df['日期'].apply(lambda x: (today_ - x.date()).days if pd.notnull(x) else "-")
     mendian_df[f'{food_name}报货周期'] = mendian_df['上次报货距今'].apply(calc_zhouqi)
     mendian_df.rename(columns={'日期': '上次报货日期'}, inplace=True)
-    mendian_df = mendian_df.sort_values(by=['大区经理', '省区经理', '区域经理'], ascending=True) #升序排序
+    mendian_df['大区经理'] = mendian_df['大区经理'].astype(manager_type)
+    mendian_df = mendian_df.sort_values(by=['大区经理', '省区经理', '区域经理'], ascending=True) # 升序排序
     with pd.ExcelWriter(output_filename, engine='openpyxl') as writer:
         sheet_name = f'{food_name}底表'
         mendian_df.to_excel(writer, sheet_name=sheet_name, index=False)
@@ -589,13 +592,16 @@ def huiyuan_upload_files():
     caipin_file_name = f'{now}_菜品销售原表.xlsx'
     file1_path = os.path.join('uploads',caipin_file_name)
     file1.save(file1_path)
-    df =  pd.read_excel(file1_path,header=[2,3,4],skipfooter=1)
-    df.columns = df.columns.map(''.join).str.replace(' ', '')
-    old_header = df.columns
-    new_header = [s.split('Unnamed:')[0] if 'Unnamed:' in s else s for s in old_header]
-    df.columns = new_header
-    df_xiaoshou = df.loc[:,['机构编码','商户号','门店','营业日期','菜品名称','订单编号','销售数量','销售额(元)','菜品收入(元)','下单时间','订单分类','菜品下单来源','订单子来源','订单金额(元)','订单收入(元)']]
-    df_xiaoshou['店内优惠'] = df_xiaoshou.apply(lambda row: row['销售额(元)'] - row['菜品收入(元)'] if row['订单子来源'] == '店内点餐' else 0, axis=1)
+    try:# 选择了优惠/全选
+        df =  pd.read_excel(file1_path,header=[2,3,4],skipfooter=1)
+        df.columns = df.columns.map(''.join).str.replace(' ', '')
+        old_header = df.columns
+        new_header = [s.split('Unnamed:')[0] if 'Unnamed:' in s else s for s in old_header]
+        df.columns = new_header
+    except:# 未选择优惠
+        df =  pd.read_excel(file1_path,header=[2],skipfooter=1)
+    df_xiaoshou = df.loc[:,['机构编码','商户号','门店','菜品名称','订单编号','销售数量','订单分类','菜品下单来源','订单子来源','订单金额(元)','订单收入(元)']]
+    df_xiaoshou['店内优惠'] = df_xiaoshou.apply(lambda row: row['订单金额(元)'] - row['订单收入(元)'] if row['订单子来源'] == '店内点餐' else 0, axis=1)
     caipin_name = df_xiaoshou['菜品名称'].iloc[0]
     if '冰淇淋' in caipin_name:
         caipin_name = '冰淇淋'
@@ -608,6 +614,7 @@ def huiyuan_upload_files():
     pivot_youhui = pd.pivot_table(df_xiaoshou_youhui, index='机构编码', values='销售数量', aggfunc='sum').reset_index()
     df_merge= pd.merge(pivot_all, pivot_youhui, how='left', on='机构编码',suffixes=('_总', '_优惠')).fillna(0)
     output_filename = f'{folder}\\{caipin_name}会员日销售情况_{now}.xlsx'
+    df_xiaoshou['订单编号'] = df_xiaoshou['订单编号'].astype(str)
     with pd.ExcelWriter(output_filename, engine='openpyxl') as writer:
         df_xiaoshou.to_excel(writer, sheet_name='底表', index=False)
         df_merge.to_excel(writer, sheet_name='分析表', index=False)
@@ -629,7 +636,7 @@ def jiankong_upload_files():
     mendian_df = mendian_format(file1_path)
     jiankong_df = pd.read_excel(file2_path,header=2)
     #去除门店
-    quchu_df = pd.read_excel(r"C:\Users\Administrator\OneDrive\甜啦啦\市场部基础数据\监控去除门店.xlsx")
+    quchu_df = pd.read_excel(r"C:\Users\Administrator\OneDrive\甜啦啦\代码底表\监控去除门店.xlsx")
     quchu_store_ids = quchu_df['门店编号'].to_list()
     jiankong_df = jiankong_df[~jiankong_df['门店编号'].isin(quchu_store_ids)]
     #补齐门店编号
@@ -679,7 +686,7 @@ def zhouqi_upload_files():
     ht_df = ht_df.dropna(subset=['合同开始日期', '合同结束日期'])
     custom_order = ['作废','解约','过期','生效']
     ht_df['合同状态'] = ht_df['合同状态'].astype(pd.CategoricalDtype(categories=custom_order, ordered=True))
-    ht_df = ht_df.sort_values(by=['登记日期', '合同状态'], ascending=[True, True])
+    ht_df = ht_df.sort_values(by=['登记日期', '合同状态'], ascending=True)
     
     for index, row in md_df.iterrows(): #门店编号 index
         h_df = ht_df[ht_df['门店编号'] == index]
@@ -740,7 +747,6 @@ def qishu():
             result.append((period_name, start_date, end_date))    
     return render_template('qishu.html', result=result)
 
-
 def get_local_ip():
     s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     try:
@@ -753,7 +759,8 @@ def get_local_ip():
     return ip
 
 
-
+manager_order = ['严鹤','刘成龙','杨硕','王枫涛','刘波','胡冰雪','赵磊','邵陈龙']
+manager_type = pd.CategoricalDtype(categories=manager_order, ordered=True)
 
 
 post_url = 'https://note.bizha.top/tianlala' 

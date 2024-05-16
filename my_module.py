@@ -17,7 +17,7 @@ def mendian_format(file):
     df['区域经理'] = df['区域经理'].fillna(df['省经理'])
     df = df.loc[:, ['门店编号', '门店名称', '大区经理', '省经理', '区域经理', '南北战区', '运营状态', '省', '市', '区', 'U8C客商编码']]
     df.rename(columns={'门店编号': '门店编码', '省经理': '省区经理'}, inplace=True)
-    df = df.sort_values(['大区经理', '省区经理', '区域经理'], ascending=[True, True, True])
+    df = df.sort_values(['南北战区','大区经理', '省区经理', '区域经理'], ascending=True)
     return df
 
 # 美团格式化
@@ -63,7 +63,6 @@ def meituan_zonghe_format(file):
     df_new['门店编码'] = df_new['门店编码'].str.split('-').str[0]
     df_new['外卖流水'] = df_new['美团流水']+df_new['饿了么流水']+df_new['自营流水']
     df_new['外卖实收'] = df_new['美团实收']+df_new['饿了么实收']+df_new['自营实收']
-#    df_new.loc[:, ['门店ID','营业天数','账单数','流水金额','实收金额','堂食流水','堂食实收','小程序流水','小程序实收','外卖流水','外卖实收','美团流水','饿了么流水','自营流水','门店编码']]
     return df_new
 # 移动文件
 def move_file(source_file, target_folder):
