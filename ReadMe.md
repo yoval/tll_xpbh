@@ -1,12 +1,6 @@
-用于新品报货
+# 说明
 
+工作常用脚本，已web话，基于python flask。
 
-
-```
-git config --global http.proxy http://127.0.0.1:7890
-git config --global https.proxy http://127.0.0.1:7890
-
-git config --global --unset http.proxy
-git config --global --unset https.proxy
-```
+使用说明：[自动化脚本说明](https://tll.bizha.top/#/?id=%e8%87%aa%e5%8a%a8%e5%8c%96%e8%84%9a%e6%9c%ac)
 
