@@ -1,7 +1,7 @@
 # 忽略uploads文件夹中的内容
 uploads/*
-!uploads/ ReadMe.txt
+!uploads/ReadMe.txt
 
 # 忽略outputs文件夹中的内容
 outputs/*
-!outputs/ ReadMe.txt
+!outputs/ReadMe.txt
