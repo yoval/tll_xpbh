@@ -4,7 +4,7 @@ Created on Wed Apr 10 14:06:51 2024
 
 @author: Administrator
 """
-from my_module import mendian_format, meituan_caipin_format,format_meituan_table,format_hualala_table
+from my_module import mendian_format, meituan_caipin_format,format_meituan_table,format_hualala_table,format_zhongtai_table
 from flask import Flask, request, url_for, render_template,render_template_string,send_from_directory
 import os
 import pandas as pd
@@ -153,6 +153,8 @@ def index():
     output_folder = 'Outputs'
     file_list = []
     for file in os.listdir(output_folder):
+        if file == 'ReadMe.txt':
+            continue
         file_path = os.path.join(output_folder, file)
         creation_date = datetime.fromtimestamp(os.path.getctime(file_path))
         file_list.append((file, creation_date))
@@ -250,24 +252,28 @@ def geshihua_upload_files():
     file1.save(file1_path)
     file2_path = os.path.join('uploads', xiaoshou_file_name)
     file2.save(file2_path)
-    
-    df_check = pd.read_excel(file2_path, nrows=2)
     mendian_df = mendian_format(file1_path)
-    
-    if type(df_check.iloc[0][0]) !=float:
-        if '按订单来源统计' in df_check.iloc[0][0]:
-            pattern = r'\d{4}/\d{2}/\d{2}'
-            dates = re.findall(pattern,  df_check.iloc[0][0])
-            shiduan = dates[0] + '~' + dates[1]
-            df = format_meituan_table(file2_path)
-    else:
-        if '142渠道销售统计表' in df_check.columns[0]:
-            pattern = r'(\d{4})(\d{2})(\d{2})--(\d{4})(\d{2})(\d{2})'
-            date_range = re.search(pattern, df_check.columns[0])
-            start_date = f"{date_range.group(1)}/{date_range.group(2)}/{date_range.group(3)}"
-            end_date = f"{date_range.group(4)}/{date_range.group(5)}/{date_range.group(6)}"
-            shiduan = f"{start_date}~{end_date}"
-            df = format_hualala_table(file2_path)
+    try:
+        df_check = pd.read_excel(file2_path, nrows=2)
+        if type(df_check.iloc[0][0]) !=float:
+            if '按订单来源统计' in df_check.iloc[0][0]:
+                pattern = r'\d{4}/\d{2}/\d{2}'
+                dates = re.findall(pattern,  df_check.iloc[0][0])
+                shiduan = dates[0] + '~' + dates[1]
+                df = format_meituan_table(file2_path)
+                
+            elif '142渠道销售统计表' in df_check.columns[0]:
+                pattern = r'(\d{4})(\d{2})(\d{2})--(\d{4})(\d{2})(\d{2})'
+                date_range = re.search(pattern, df_check.columns[0])
+                start_date = f"{date_range.group(1)}/{date_range.group(2)}/{date_range.group(3)}"
+                end_date = f"{date_range.group(4)}/{date_range.group(5)}/{date_range.group(6)}"
+                shiduan = f"{start_date}~{end_date}"
+                df = format_hualala_table(file2_path)
+    except:
+        df_check = pd.read_csv(file2_path, nrows=2,encoding='gbk')
+        shiduan = df_check['时段'][0]
+        shiduan = shiduan.replace('\t','')
+        df = format_zhongtai_table(file2_path)
 
     mendian_df['时段'] = shiduan
     start_date, end_date = shiduan.split("~")
@@ -277,6 +283,7 @@ def geshihua_upload_files():
     formatted_date_range = f"{formatted_start_date}_{formatted_end_date}"
     
     df_result = pd.merge(mendian_df, df, how='left', left_on='门店编码',right_on = '门店编码')
+    df_result = df_result.fillna(0)
     output_filename = f'{folder}\\各渠道销售统计_{formatted_date_range}_{now}.xlsx'
     df_result.to_excel(output_filename,index=False)
     file_link = url_for('static', filename=f'各渠道销售统计_{formatted_date_range}_{now}.xlsx')
@@ -284,7 +291,6 @@ def geshihua_upload_files():
     return render_template_string(html)
     
     
-
 
 @app.route('/download/<filename>')
 def download_file(filename):
@@ -654,6 +660,7 @@ def jiankong_upload_files():
     df_result['在线'] =  df_result['完全在线'] + df_result['部分在线'] 
     df_result['在线(营业中)'] =  df_result['完全在线(营业中)'] + df_result['部分在线(营业中)'] 
     df_result = df_result.loc[:,['大区经理','省区经理','区域经理','监控门店数','在线','完全在线','部分在线','离线','监控门店数(营业中)','在线(营业中)','完全在线(营业中)','部分在线(营业中)','离线(营业中)']]
+
     output_filename = f'{folder}\\门店监控状态统计_{now}.xlsx'
     with pd.ExcelWriter(output_filename, engine='openpyxl') as writer:
         df_merge.to_excel(writer, sheet_name='底表', index=False)

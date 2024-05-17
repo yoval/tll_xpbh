@@ -129,6 +129,7 @@ def format_hualala_table(file):
     new_header = [s.split('Unnamed:')[0] if 'Unnamed:' in s else s for s in old_header]
     df.columns = new_header
     df = df.dropna(subset=['店铺组织编码'])
+    df['店铺组织编码'] = df['店铺组织编码'].astype(str)
     df= pd.merge(df, df_syj, how='left', left_on='店铺组织编码',right_on = '组织编码')
     df_emt['门店编码'] = df['门店编码']
     df_emt['流水金额'] = df['合计流水金额']
@@ -150,7 +151,33 @@ def format_hualala_table(file):
     return pivot_df
 
 
-
+def format_zhongtai_table(file):
+    df = pd.read_csv(file, encoding='gbk')
+    df = df.replace('\t', '', regex=True)
+    #日透视
+    pivot_df_day = pd.pivot_table(df, index=['门店编码','日期'], columns='渠道', values=['流水金额', '实收金额', '订单数'], aggfunc='sum')
+    pivot_df_day.columns = pivot_df_day.columns.map('_'.join)
+    pivot_df_day = pivot_df_day.fillna(0)
+    pivot_df_day = pivot_df_day.reset_index()
+    pivot_df_day['流水金额'] = pivot_df_day['流水金额_pos'] + pivot_df_day['流水金额_小程序'] + pivot_df_day['流水金额_美团'] + pivot_df_day['流水金额_饿了么']
+    pivot_df_day['实收金额'] = pivot_df_day['实收金额_pos'] + pivot_df_day['实收金额_小程序'] + pivot_df_day['实收金额_美团'] + pivot_df_day['实收金额_饿了么']
+    pivot_df_day['订单数'] = pivot_df_day['订单数_pos'] + pivot_df_day['订单数_小程序'] + pivot_df_day['订单数_美团'] + pivot_df_day['订单数_饿了么']
+    pivot_df_day['外卖流水'] = pivot_df_day['流水金额_美团'] + pivot_df_day['流水金额_饿了么']
+    pivot_df_day['外卖实收'] = pivot_df_day['实收金额_美团'] + pivot_df_day['实收金额_饿了么']
+    pivot_df_day['外卖订单数'] = pivot_df_day['订单数_美团'] + pivot_df_day['订单数_饿了么']
+    pivot_df_day['营业天数'] = pivot_df_day['流水金额'].apply(lambda x: 1 if x > 0 else 0)
+    pivot_df_day = pivot_df_day.rename(columns={
+        '流水金额_pos': '堂食流水',
+        '实收金额_pos': '堂食实收',
+        '订单数_pos':'堂食订单数',
+        '流水金额_小程序':'小程序流水',
+        '实收金额_小程序':'小程序实收',
+        '订单数_小程序':'小程序订单数'
+    })
+    pivot_df_day = pivot_df_day.loc[:,['门店编码','日期','营业天数','流水金额','实收金额','订单数','堂食流水','堂食实收','堂食订单数','外卖流水','外卖实收','外卖订单数','小程序流水','小程序实收','小程序订单数']]
+    pivot_result = pd.pivot_table(pivot_df_day, index='门店编码',  aggfunc='sum').reset_index()
+    pivot_result = pivot_result.loc[:,['门店编码','营业天数','流水金额','实收金额','订单数','堂食流水','堂食实收','堂食订单数','外卖流水','外卖实收','外卖订单数','小程序流水','小程序实收','小程序订单数']]
+    return pivot_result
 
 
 
