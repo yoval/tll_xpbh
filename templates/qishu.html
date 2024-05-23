@@ -37,6 +37,19 @@
       }
       return true;
     }
+
+    window.onload = function() {
+      var today = new Date();
+      var firstDay = new Date(today.getFullYear(), today.getMonth(), 1);
+      var yesterday = new Date();
+      yesterday.setDate(yesterday.getDate() - 1);
+
+      document.getElementById("start_date").valueAsDate = firstDay;
+      document.getElementById("end_date").valueAsDate = yesterday;
+
+      // 修正月份和日期的显示格式
+      document.getElementById("start_date").value = firstDay.getFullYear() + '-' + (firstDay.getMonth() + 1).toString().padStart(2, '0') + '-' + firstDay.getDate().toString().padStart(2, '0');
+    }
   </script>
 </head>
 <body>

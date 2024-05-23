@@ -1,13 +1,33 @@
+import re
 import pandas as pd
 import os
 import shutil
 import glob
+import openpyxl
+from openpyxl.styles import PatternFill
 
 # 返回所有加盟店
 def mendian_format(file):
     df = pd.read_excel(file, sheet_name = '门店信息表', header=1, converters={'U8C客商编码': str})
     df = df[df['大区经理'].notna()] #排除大区经理为空的门店
     df = df[~df['门店名称'].str.contains('测试|茶语|茶讯')] #排除测试门店、教学门店
+    df['U8C客商编码'] = df['U8C客商编码'].astype(str)
+    # 删除各级经理列中的括号及括号内的内容
+    df['大区经理'] = df['大区经理'].str.replace('(\(.*?\))', '', regex=True)
+    df['省经理'] = df['省经理'].str.replace('(\(.*?\))', '', regex=True)
+    df['区域经理'] = df['区域经理'].str.replace('(\(.*?\))', '', regex=True)
+    # 将 "区域经理" 列为空的值填充为 "省经理" 的值
+    df['区域经理'] = df['区域经理'].fillna(df['省经理'])
+    df = df.loc[:, ['门店编号', '门店名称', '大区经理', '省经理', '区域经理', '南北战区', '运营状态', '省', '市', '区', 'U8C客商编码']]
+    df.rename(columns={'门店编号': '门店编码', '省经理': '省区经理'}, inplace=True)
+    df = df.sort_values(['南北战区','大区经理', '省区经理', '区域经理'], ascending=True)
+    return df
+
+# 返回所有门店（加盟店+直营店）
+def all_mendian_format(file):
+    df = pd.read_excel(file, sheet_name = '门店信息表', header=1, converters={'U8C客商编码': str})
+    df = df[~df['门店名称'].str.contains('测试|茶语|茶讯')] #排除测试门店、教学门店
+    df = df[~df['门店编号'].str.contains('KXD')] #排除卡小逗
     df['U8C客商编码'] = df['U8C客商编码'].astype(str)
     # 删除各级经理列中的括号及括号内的内容
     df['大区经理'] = df['大区经理'].str.replace('(\(.*?\))', '', regex=True)
@@ -32,38 +52,6 @@ def meituan_caipin_format(file):
     df = df.groupby('机构编码')['销售数量'].sum()
     return df,caipin_name
 
-# 综合营业统计
-def meituan_zonghe_format(file):
-    df =  pd.read_excel(file,header=[2,3,4],skipfooter=1)
-    df.columns = df.columns.map(''.join).str.replace(' ', '')
-    old_header = df.columns
-    new_header = [s.split('Unnamed:')[0] if 'Unnamed:' in s else s for s in old_header]
-    df.columns = new_header
-    df = df.loc[:,['机构编码','商户号','门店','营业天数','营业额（元）','营业收入（元）','订单量','渠道营业构成收银POS营业额（元）','渠道营业构成收银POS营业收入（元）',
-         '渠道营业构成美团外卖营业额（元）','渠道营业构成美团外卖营业收入（元）','渠道营业构成饿了么外卖营业额（元）','渠道营业构成饿了么外卖营业收入（元）','渠道营业构成自营外卖营业额（元）','渠道营业构成自营外卖营业收入（元）'
-          ,'渠道营业构成第三方小程序营业额（元）','渠道营业构成第三方小程序营业收入（元）'
-         ]]
-    df_new = df.rename(columns={
-        '机构编码':'门店编码',
-        '商户号': '门店ID',
-        '订单量':'账单数',
-        '营业额（元）':'流水金额',
-        '营业收入（元）':'实收金额',
-        '渠道营业构成收银POS营业额（元）':'堂食流水',
-        '渠道营业构成收银POS营业收入（元）':'堂食实收',
-        '渠道营业构成美团外卖营业额（元）':'美团流水',
-        '渠道营业构成美团外卖营业收入（元）':'美团实收',
-        '渠道营业构成饿了么外卖营业额（元）':'饿了么流水',
-        '渠道营业构成饿了么外卖营业收入（元）':'饿了么实收',
-        '渠道营业构成自营外卖营业额（元）':'自营流水',
-        '渠道营业构成自营外卖营业收入（元）':'自营实收',
-        '渠道营业构成第三方小程序营业额（元）':'小程序流水',
-        '渠道营业构成第三方小程序营业收入（元）':'小程序实收'
-        })
-    df_new['门店编码'] = df_new['门店编码'].str.split('-').str[0]
-    df_new['外卖流水'] = df_new['美团流水']+df_new['饿了么流水']+df_new['自营流水']
-    df_new['外卖实收'] = df_new['美团实收']+df_new['饿了么实收']+df_new['自营实收']
-    return df_new
 # 移动文件
 def move_file(source_file, target_folder):
     file_name = os.path.basename(source_file)
@@ -180,8 +168,75 @@ def format_zhongtai_table(file):
     return pivot_result
 
 
+# 遍历excel文件各个sheet,对“区域经理”为“省区合计”、“大区合计”的行进行着色
+def highlight_summary_rows(file_name, sheng_fill_color="EEECE1", daqu_fill_color="948A54"):
+    workbook = openpyxl.load_workbook(file_name)
+    for worksheet in workbook.worksheets:
+        quyu_column_index = None
+        for column in worksheet.columns:
+            if column[0].value == "区域经理":
+                #quyu_column_index = column[0].column_letter  # 查找区域经理列
+                quyu_column_index = column[0].column  # 查找区域经理列
+                quyu_column_index = quyu_column_index -1
+                break
+    
+        if quyu_column_index is not None:
+            for row in worksheet.iter_rows():
+                if row[quyu_column_index].value == "省区合计":
+                    for cell in row[0:18]:
+                        cell.fill = PatternFill(start_color=sheng_fill_color, end_color=sheng_fill_color, fill_type="solid")
+                elif row[quyu_column_index].value == "大区合计":
+                    for cell in row[0:18]:
+                        cell.fill = PatternFill(start_color=daqu_fill_color, end_color=daqu_fill_color, fill_type="solid")
+    
+    workbook.save(file_name)
 
+def set_percentage_format(file_name, patterns=None):
+    if patterns is None:
+        patterns = r'(占比|同比|环比|对比)'
 
+    workbook = openpyxl.load_workbook(file_name)
+    for worksheet in workbook.worksheets:
+        for column in worksheet.columns:
+            if re.search(patterns, column[0].value) and not re.search(r'期', column[0].value):
+                for cell in column:
+                    cell.number_format = '0.00%'
 
+    workbook.save(file_name)
+    
 
+#添加各级经理汇总行
+def add_summary(df):
+    df_pivot = pd.pivot_table(
+        df,
+        index=["大区经理", "省区经理", "区域经理"],
+        aggfunc="sum",
+        fill_value=0,
+    )
+    summary_by_daqu_manager = df_pivot.groupby(level="大区经理").sum().reset_index()
+    summary_by_sheng_manager = df_pivot.groupby(level=["大区经理", "省区经理"]).sum().reset_index()
+    df_pivot = df_pivot.reset_index()
+    result = pd.concat([df_pivot, summary_by_daqu_manager, summary_by_sheng_manager], axis=0)
+    result = result.reset_index()
+    
+    result = result.sort_values(["大区经理", "省区经理", "区域经理"], ascending=True)
 
+    # 查找“区域经理”列的空值并根据“省区经理”列是否为空进行修改
+    result["区域经理"] = result.apply(
+        lambda row: "大区合计"
+        if pd.isna(row["区域经理"]) and pd.isna(row["省区经理"])
+        else "省区合计"
+        if pd.isna(row["区域经理"])
+        else row["区域经理"],
+        axis=1,
+    )
+
+    return result
+
+# 列出文件夹中所有文件    
+def list_files(folder):
+    return [os.path.join(folder, f) for f in os.listdir(folder) if os.path.isfile(os.path.join(folder, f))]
+
+# 定义一个函数，用于去除括号及其内容
+def remove_brackets(text):
+    return text.str.replace('(\(.*?\))', '', regex=True)

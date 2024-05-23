@@ -4,7 +4,7 @@ Created on Wed Apr 10 14:06:51 2024
 
 @author: Administrator
 """
-from my_module import mendian_format, meituan_caipin_format,format_meituan_table,format_hualala_table,format_zhongtai_table
+from my_module import mendian_format, meituan_caipin_format,format_meituan_table,format_hualala_table,format_zhongtai_table,add_summary,highlight_summary_rows,set_percentage_format,all_mendian_format
 from flask import Flask, request, url_for, render_template,render_template_string,send_from_directory
 import os
 import pandas as pd
@@ -17,9 +17,8 @@ from dateutil.relativedelta import relativedelta
 import socket,requests
 import math
 import re
-import openpyxl
 from openpyxl.styles import PatternFill
-import glob
+
 #输出文件夹
 folder = 'outputs'
 
@@ -129,17 +128,6 @@ def jiankong_process_stores(df):
     pivot_stores["监控门店数"] = pivot_stores["完全在线"] + pivot_stores["部分在线"] + pivot_stores["离线"]
     return pivot_stores
 
-# 门店周期管理加序号
-def add_number(text):
-    if type(text) == float or text == '':
-        return ""
-    # 根据回车符分割文本
-    lines = text.split('\n')
-    # 给每一行添加编号
-    numbered_lines = [f'{i + 1}.{line}' for i, line in enumerate(lines)]
-    # 将编号后的行重新组合成文本
-    numbered_text = '\n'.join(numbered_lines)
-    return numbered_text
 
 # 创建 Flask 应用
 app = Flask(__name__, template_folder='./templates',static_folder='outputs')
@@ -241,18 +229,18 @@ def xinpin_upload_files():
 # 销售格式化
 @app.route('/geshihua_upload', methods=['POST'])
 def geshihua_upload_files():
-    global now
     now = time.strftime('%Y%m%d_%H%M', time.localtime())
     # 获取上传的文件
     file1 = request.files['file1']
     file2 = request.files['file2']
+    
     mendian_file_name = f'{now}_门店管理原表.xlsx'
     xiaoshou_file_name = f'{now}_菜品销售原表.xlsx'
     file1_path = os.path.join('uploads', mendian_file_name)
     file1.save(file1_path)
     file2_path = os.path.join('uploads', xiaoshou_file_name)
     file2.save(file2_path)
-    mendian_df = mendian_format(file1_path)
+    mendian_df = all_mendian_format(file1_path)
     try:
         df_check = pd.read_excel(file2_path, nrows=2)
         if type(df_check.iloc[0][0]) !=float:
@@ -660,12 +648,16 @@ def jiankong_upload_files():
     df_result['在线'] =  df_result['完全在线'] + df_result['部分在线'] 
     df_result['在线(营业中)'] =  df_result['完全在线(营业中)'] + df_result['部分在线(营业中)'] 
     df_result = df_result.loc[:,['大区经理','省区经理','区域经理','监控门店数','在线','完全在线','部分在线','离线','监控门店数(营业中)','在线(营业中)','完全在线(营业中)','部分在线(营业中)','离线(营业中)']]
-
+    df_result = add_summary(df_result)
+    df_result['监控在线率'] = df_result['在线']/df_result['监控门店数']
+    df_result = df_result.loc[:,['大区经理','省区经理','区域经理','监控门店数','在线','监控在线率','完全在线','部分在线','离线','监控门店数(营业中)','在线(营业中)','完全在线(营业中)','部分在线(营业中)','离线(营业中)']]
     output_filename = f'{folder}\\门店监控状态统计_{now}.xlsx'
     with pd.ExcelWriter(output_filename, engine='openpyxl') as writer:
         df_merge.to_excel(writer, sheet_name='底表', index=False)
         df_result.to_excel(writer, sheet_name='中间表', index=False)
     
+    highlight_summary_rows(output_filename)
+    set_percentage_format(output_filename)
     file_link = url_for('static', filename=f'门店监控状态统计_{now}.xlsx')
     html = f'<a href="{file_link}">下载门店监控状态统计_{now}.xlsx</a>'
     return html
